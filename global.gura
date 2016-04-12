@@ -1,0 +1,32 @@
+#!/usr/bin/env gura
+import(yaml)
+
+fileNameCfg = path.join(sys.cfgdir, 'guracapture.yml')
+
+dirNameSource:public		= '/Users/ypsitau/tmp'
+dirNameStorage:public		= '/Users/ypsitau/Pictures'
+matchPatternFolder:public	= r'\d\d\d\d\d\d\d\d (.+)'
+substPatternFolder:public	= '${YYYY}/${YYYY}${MM}${DD} #${N}'
+substPatternFile:public		= '${YYYY}_${MM}${DD}_${hh}${mm}${ss}${QQ}'
+
+LoadConfig() = {
+	try {
+		cfg = yaml.read(fileNameCfg)
+		dirNameSource:extern		= cfg['dirNameSource']
+		dirNameStorage:extern		= cfg['dirNameStorage']
+		matchPatternFolder:extern	= cfg['matchPatternFolder']
+		substPatternFolder:extern	= cfg['substPatternFolder']
+		substPatternFile:extern		= cfg['substPatternFile']
+	} catch {}
+}
+
+SaveConfig() = {
+	cfg = %{
+		'dirNameSource'				=> dirNameSource
+		'dirNameStorage'			=> dirNameStorage
+		'matchPatternFolder'		=> matchPatternFolder
+		'substPatternFolder'		=> substPatternFolder
+		'substPatternFile'			=> substPatternFile
+	}
+	yaml.write(fileNameCfg, cfg)
+}

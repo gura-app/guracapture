@@ -1,9 +1,11 @@
 #!/usr/bin/env gura
 import(re)
 import(wx)
+import(wx.utils)
 import(jpeg)
 import(resource)
 import(translate)
+import(global, g)
 
 //-----------------------------------------------------------------------------
 // Control ID
@@ -41,7 +43,7 @@ PatternEditorPanel = class(wx.Panel) {
 			wx.StaticText(this, wx.ID_ANY, 'Folder Name'$) {|ctrl|
 				gbox.Add(ctrl, wx.SizerFlags().Expand())
 			}
-			wx.TextCtrl(this, wx.ID_ANY, wx.GetApp().cfg['substPatternFolder']) {|ctrl|
+			wx.TextCtrl(this, wx.ID_ANY, g.substPatternFolder) {|ctrl|
 				gbox.Add(ctrl, wx.SizerFlags(1).Expand())
 				ctrl.Bind(wx.EVT_TEXT) {|event| this.OnText(event)}
 				this.textSubstPatternFolder = ctrl
@@ -49,7 +51,7 @@ PatternEditorPanel = class(wx.Panel) {
 			wx.StaticText(this, wx.ID_ANY, 'File Name'$) {|ctrl|
 				gbox.Add(ctrl, wx.SizerFlags().Expand())
 			}
-			wx.TextCtrl(this, wx.ID_ANY, wx.GetApp().cfg['substPatternFile']) {|ctrl|
+			wx.TextCtrl(this, wx.ID_ANY, g.substPatternFile) {|ctrl|
 				gbox.Add(ctrl, wx.SizerFlags(1).Expand())
 				ctrl.Bind(wx.EVT_TEXT) {|event| this.OnText(event)}
 				this.textSubstPatternFile = ctrl
@@ -64,7 +66,7 @@ PatternEditorPanel = class(wx.Panel) {
 			wx.StaticText(this, wx.ID_ANY, 'Folder Name'$) {|ctrl|
 				gbox.Add(ctrl, wx.SizerFlags().Expand())
 			}
-			wx.TextCtrl(this, wx.ID_ANY, wx.GetApp().cfg['matchPatternFolder']) {|ctrl|
+			wx.TextCtrl(this, wx.ID_ANY, g.matchPatternFolder) {|ctrl|
 				gbox.Add(ctrl, wx.SizerFlags(1).Expand())
 				ctrl.Bind(wx.EVT_TEXT) {|event| this.OnText(event)}
 				this.textMatchPatternFolder = ctrl
@@ -172,7 +174,7 @@ GetTimeStamp(pathName:string) = {
 }
 
 MakePathNameFromDatetime(dt:datetime) = {
-	dirNameStorage = wx.GetApp().cfg['dirNameStorage']
+	dirNameStorage = g.dirNameStorage
 	YYYY = format('%04d', dt.year)
 	YY = format('%02d', dt.year % 100)
 	MM = format('%02d', dt.month)
@@ -183,8 +185,8 @@ MakePathNameFromDatetime(dt:datetime) = {
 	QQ = 'AA'
 	N = '1'
 	[
-		path.join(dirNameStorage, wx.GetApp().cfg['substPatternFolder'].embed())
-		wx.GetApp().cfg['substPatternFile'].embed()
+		path.join(dirNameStorage, g.substPatternFolder.embed())
+		g.substPatternFile.embed()
 	]
 }
 
@@ -232,7 +234,7 @@ ImageViewer = class(wx.Panel) {
 		this.Bind(wx.EVT_IDLE) {|event| this.OnIdle(event)}
 	}
 	UpdateContainerInfosForSource() = {
-		dirNameSource = wx.GetApp().cfg['dirNameSource']
+		dirNameSource = g.dirNameSource
 		pathNames = path.walk(dirNameSource, -1, fileNamePatternAcceptable*):file
 		this.containerInfosForSource = []
 		pathNames.each():xlist {|pathName|
@@ -250,7 +252,7 @@ ImageViewer = class(wx.Panel) {
 		}
 	}
 	UpdateContainerInfosForStorage() = {
-		dirNameStorage = wx.GetApp().cfg['dirNameStorage']
+		dirNameStorage = g.dirNameStorage
 		dirNames = (path.walk(dirNameStorage, 1, '*'):dir).sort(`descend):list
 		this.containerInfosForStorage = dirNames.each():xlist {|dirName|
 			pathNames = [path.dir(dirName, fileNamePatternAcceptable*)]
@@ -291,7 +293,7 @@ ImageViewer = class(wx.Panel) {
 		dc.Clear()
 		dc.SetPen(wx.NullPen)
 		dc.SetBrush(this.brushSlot)
-		dirNameStorage = wx.GetApp().cfg['dirNameStorage']
+		dirNameStorage = g.dirNameStorage
 		yTop = this.GetScrollPos(wx.VERTICAL)
 		yBottom = yTop + htClient
 		containerInfos.each {|containerInfo|
@@ -463,7 +465,7 @@ MainPanel = class(wx.Panel) {
 			wx.StaticText(this, wx.ID_ANY, 'Source Folder'$) {|ctrl|
 				gbox.Add(ctrl, wx.SizerFlags().Align(wx.ALIGN_CENTRE_VERTICAL))
 			}
-			wx.StaticText(this, wx.ID_ANY, wx.GetApp().cfg['dirNameSource'],
+			wx.StaticText(this, wx.ID_ANY, g.dirNameSource,
 						  style => wx.SUNKEN_BORDER) {|ctrl|
 				gbox.Add(ctrl, wx.SizerFlags(1).Expand())
 				this.textSource = ctrl
@@ -478,7 +480,7 @@ MainPanel = class(wx.Panel) {
 			wx.StaticText(this, wx.ID_ANY, 'Storage Folder'$) {|ctrl|
 				gbox.Add(ctrl, wx.SizerFlags().Align(wx.ALIGN_CENTRE_VERTICAL))
 			}
-			wx.StaticText(this, wx.ID_ANY, wx.GetApp().cfg['dirNameStorage'],
+			wx.StaticText(this, wx.ID_ANY, g.dirNameStorage,
 						  style => wx.SUNKEN_BORDER) {|ctrl|
 				gbox.Add(ctrl, wx.SizerFlags(1).Expand())
 				this.textStorage = ctrl
@@ -506,10 +508,10 @@ MainPanel = class(wx.Panel) {
 	OnBtn_SourceBrowse(event:wx.CommandEvent) = {
 		style = wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST
 		dlg = wx.DirDialog(this, 'Choose Source Folder'$,
-						   wx.GetApp().cfg['dirNameSource'], style)
+						   g.dirNameSource, style)
 		if (dlg.ShowModal() == wx.ID_OK) {
 			dirName = dlg.GetPath()
-			wx.GetApp().cfg['dirNameSource'] = dirName
+			g.dirNameSource = dirName
 			this.textSource.SetValue(dirName)
 			this.imageViewer.UpdateContainerInfosForSource()
 			this.imageViewer.UpdateContent()
@@ -518,10 +520,10 @@ MainPanel = class(wx.Panel) {
 	OnBtn_StorageBrowse(event:wx.CommandEvent) = {
 		style = wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST
 		dlg = wx.DirDialog(this, 'Choose Storage Folder'$,
-						   wx.GetApp().cfg['dirNameStorage'], style)
+						   g.dirNameStorage, style)
 		if (dlg.ShowModal() == wx.ID_OK) {
 			dirName = dlg.GetPath()
-			wx.GetApp().cfg['dirNameStorage'] = dirName
+			g.dirNameStorage = dirName
 			this.textStorage.SetValue(dirName)
 			this.imageViewer.UpdateContainerInfosForStorage()
 			this.imageViewer.UpdateContent()
@@ -556,27 +558,27 @@ MainFrame = class(wx.Frame) {
 }
 
 //-----------------------------------------------------------------------------
+// LoadConfig / SaveConfig
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
 // App
 //-----------------------------------------------------------------------------
 App = class(wx.App) {
-	public {
-		cfg
-	}
 	OnInit() = {
-		this.cfg = %{
-			'matchPatternFolder'	=> r'\d\d\d\d\d\d\d\d (.+)'
-			'substPatternFolder'	=> '${YYYY}/${YYYY}${MM}${DD} #${N}'
-			'substPatternFile'		=> '${YYYY}_${MM}${DD}_${hh}${mm}${ss}${QQ}'
-		}
-		//this.cfg['dirNameSource'] = '/Volumes/NO NAME'
-		this.cfg['dirNameSource'] = '/Users/ypsitau/tmp'
-		this.cfg['dirNameStorage'] = '/Users/ypsitau/Pictures'
-		//frame = MainFrame()
-		//frame.Show()
-		//true
-		dlg = PatternEditorDialog(nil)
-		dlg.ShowModal()
-		false
+		!wx.utils.CheckGuraVersion(nil, 0, 7, 0) && return(false)
+		!wx.utils.CheckGuraPlatform(nil, [`mswin, `linux, `darwin]) && return(false)
+		g.LoadConfig()
+		frame = MainFrame()
+		frame.Show()
+		true
+		//dlg = PatternEditorDialog(nil)
+		//dlg.ShowModal()
+		//false
+	}
+	OnExit() = {
+		g.SaveConfig()
+		0
 	}
 }
 
