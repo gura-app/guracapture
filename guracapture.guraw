@@ -55,6 +55,21 @@ PatternEditorPanel = class(wx.Panel) {
 				this.textSubstPatternFile = ctrl
 			}
 		}
+		wx.StaticBox(this, wx.ID_ANY, 'Match Pattern'$) {|stb|
+			vboxIn = wx.StaticBoxSizer(stb, wx.VERTICAL)
+			vbox.Add(vboxIn, wx.SizerFlags().Expand())
+			gbox = wx.FlexGridSizer(nil, 2, 4, 8)
+			vboxIn.Add(gbox, wx.SizerFlags().Expand())
+			gbox.AddGrowableCol(1, 1)
+			wx.StaticText(this, wx.ID_ANY, 'Folder Name'$) {|ctrl|
+				gbox.Add(ctrl, wx.SizerFlags().Expand())
+			}
+			wx.TextCtrl(this, wx.ID_ANY, wx.GetApp().cfg['matchPatternFolder']) {|ctrl|
+				gbox.Add(ctrl, wx.SizerFlags(1).Expand())
+				ctrl.Bind(wx.EVT_TEXT) {|event| this.OnText(event)}
+				this.textMatchPatternFolder = ctrl
+			}
+		}
 		str = format('Sample: '$ + '%s-%s-%s %s:%s:%s', YYYY, MM, DD, hh, mm, ss)
 		wx.StaticBox(this, wx.ID_ANY, str) {|stb|
 			vboxIn = wx.StaticBoxSizer(stb, wx.VERTICAL)
@@ -65,18 +80,16 @@ PatternEditorPanel = class(wx.Panel) {
 			wx.StaticText(this, wx.ID_ANY, 'Folder Name'$) {|ctrl|
 				gbox.Add(ctrl, wx.SizerFlags().Expand())
 			}
-			wx.StaticText(this, wx.ID_ANY, '',
-						  style => wx.SUNKEN_BORDER | wx.ST_NO_AUTORESIZE) {|ctrl|
+			wx.TextCtrl(this, wx.ID_ANY, '', style => wx.TE_READONLY) {|ctrl|
 				gbox.Add(ctrl, wx.SizerFlags(1).Expand())
-				this.labelResultFolder = ctrl
+				this.textResultFolder = ctrl
 			}
 			wx.StaticText(this, wx.ID_ANY, 'File Name'$) {|ctrl|
 				gbox.Add(ctrl, wx.SizerFlags().Expand())
 			}
-			wx.StaticText(this, wx.ID_ANY, '',
-						  style => wx.SUNKEN_BORDER | wx.ST_NO_AUTORESIZE) {|ctrl|
+			wx.TextCtrl(this, wx.ID_ANY, '', style => wx.TE_READONLY) {|ctrl|
 				gbox.Add(ctrl, wx.SizerFlags(1).Expand())
-				this.labelResultFile = ctrl
+				this.textResultFile = ctrl
 			}
 		}
 		wx.HtmlWindow(this, style => wx.SUNKEN_BORDER) {|ctrl|
@@ -88,25 +101,25 @@ PatternEditorPanel = class(wx.Panel) {
 		}
 		this.timer = wx.Timer(this, TimerId)
 		this.Bind(wx.EVT_TIMER, this.TimerId) {|event| this.OnTimer(event)}
-		this.UpdateSample(this.textSubstPatternFolder, this.labelResultFolder)
-		this.UpdateSample(this.textSubstPatternFile, this.labelResultFile)
+		this.UpdateSample(this.textSubstPatternFolder, this.textResultFolder)
+		this.UpdateSample(this.textSubstPatternFile, this.textResultFile)
 	}
 	OnText(event:wx.CommandEvent) = {
 		this.timer.Start(500, true)
 	}
 	OnTimer(event:wx.TimerEvent) = {
-		this.UpdateSample(this.textSubstPatternFolder, this.labelResultFolder)
-		this.UpdateSample(this.textSubstPatternFile, this.labelResultFile)
+		this.UpdateSample(this.textSubstPatternFolder, this.textResultFolder)
+		this.UpdateSample(this.textSubstPatternFile, this.textResultFile)
 	}
-	UpdateSample(textSubstPattern:wx.TextCtrl, labelResult:wx.StaticText) = {
+	UpdateSample(textSubstPattern:wx.TextCtrl, textResult:wx.TextCtrl) = {
 		strTmpl = textSubstPattern.GetValue()
 		try {
 			str = strTmpl.embed()
-			labelResult.SetForegroundColour(wx.BLACK)
-			labelResult.SetLabel(str)
+			textResult.SetForegroundColour(wx.BLACK)
+			textResult.SetValue(str)
 		} catch {|e|
-			labelResult.SetForegroundColour(wx.RED)
-			labelResult.SetLabel(e.text)
+			textResult.SetForegroundColour(wx.RED)
+			textResult.SetValue(e.text)
 		}
 	}
 }
@@ -551,18 +564,19 @@ App = class(wx.App) {
 	}
 	OnInit() = {
 		this.cfg = %{
+			'matchPatternFolder'	=> r'\d\d\d\d\d\d\d\d (.+)'
 			'substPatternFolder'	=> '${YYYY}/${YYYY}${MM}${DD} #${N}'
 			'substPatternFile'		=> '${YYYY}_${MM}${DD}_${hh}${mm}${ss}${QQ}'
 		}
 		//this.cfg['dirNameSource'] = '/Volumes/NO NAME'
 		this.cfg['dirNameSource'] = '/Users/ypsitau/tmp'
 		this.cfg['dirNameStorage'] = '/Users/ypsitau/Pictures'
-		frame = MainFrame()
-		frame.Show()
-		true
-		//dlg = PatternEditorDialog(nil)
-		//dlg.ShowModal()
-		//false
+		//frame = MainFrame()
+		//frame.Show()
+		//true
+		dlg = PatternEditorDialog(nil)
+		dlg.ShowModal()
+		false
 	}
 }
 

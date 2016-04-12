@@ -40,6 +40,7 @@ transDicts = %{
 'Storage Folder'				=> '格納先フォルダ'
 'Browse'						=> 'フォルダ選択'
 'Substitution Pattern'			=> '置換パターン'
+'Match Pattern'					=> '検索パターン'
 'Folder Name'					=> 'フォルダ名'
 'File Name'						=> 'ファイル名'
 'Edit'							=> '編集'
