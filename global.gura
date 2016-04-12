@@ -3,16 +3,19 @@ import(yaml)
 
 fileNameCfg = path.join(sys.cfgdir, 'guracapture.yml')
 
-xMainWindow:public			= -1
-yMainWindow:public			= -1
-wdMainWindow:public			= 800
-htMainWindow:public			= 730
-dirNameSource:public		= '/Users/ypsitau/tmp'
-dirNameStorage:public		= '/Users/ypsitau/Pictures'
-matchPatternFolder:public	= r'\d\d\d\d\d\d\d\d (.+)'
-substPatternFolder:public	= '${YYYY}/${YYYY}${MM}${DD} #${N}'
-substPatternFile:public		= '${YYYY}_${MM}${DD}_${hh}${mm}${ss}${QQ}'
+xMainWindow:public				= -1
+yMainWindow:public				= -1
+wdMainWindow:public				= 800
+htMainWindow:public				= 730
+dirNameSource:public			= '/Users/ypsitau/tmp'
+dirNameStorage:public			= '/Users/ypsitau/Pictures'
+matchPatternFolder:public		= r'\d\d\d\d\d\d\d\d (.+)'
+substPatternFolder:public		= '${YYYY}/${YYYY}${MM}${DD} #${N}'
+substPatternFile:public			= '${YYYY}_${MM}${DD}_${hh}${mm}${ss}${QQ}'
 
+//-----------------------------------------------------------------------------
+// LoadConfig
+//-----------------------------------------------------------------------------
 LoadConfig() = {
 	try {
 		cfg = yaml.read(fileNameCfg)
@@ -28,6 +31,9 @@ LoadConfig() = {
 	} catch {}
 }
 
+//-----------------------------------------------------------------------------
+// SaveConfig
+//-----------------------------------------------------------------------------
 SaveConfig() = {
 	cfg = %{
 		'xMainWindow'				=> xMainWindow
