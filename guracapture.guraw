@@ -540,7 +540,8 @@ MainPanel = class(wx.Panel) {
 //-----------------------------------------------------------------------------
 MainFrame = class(wx.Frame) {
 	__init__(pos:wx.Point => wx.DefaultPosition) = \
-					{|nil, wx.ID_ANY, 'Gura Capture', pos, wx.Size(800, 600)|
+		{|nil, wx.ID_ANY, 'Gura Capture', wx.Point(g.xMainWindow, g.yMainWindow),
+		  wx.Size(g.wdMainWindow, g.htMainWindow)|
 		this.SetIcon(wx.IconFromXPMData(resource.sample_xpm))
 		menuBar = wx.MenuBar()
 		MainPanel(this)
@@ -550,6 +551,16 @@ MainFrame = class(wx.Frame) {
 			m.Append(ID_EditPattern,		'&Edit Pattern...\tCtrl-E'$)
 		}								
 		this.Bind(wx.EVT_MENU, ID_EditPattern)	{|event| this.OnMenu_EditPattern(event)}
+		this.Bind(wx.EVT_SIZE) {|event|
+			//wx.LayoutAlgorithm().LayoutWindow(this, this.productViewer)
+			this.UpdateSizePosInfo()
+			event.Skip()
+		}
+	}
+	UpdateSizePosInfo() = {
+		(this.IsIconized() || this.IsMaximized()) && return
+		[g.xMainWindow, g.yMainWindow] = this.GetScreenPositionXY()
+		[g.wdMainWindow, g.htMainWindow] = this.GetSizeWH()
 	}
 	OnMenu_EditPattern(event:wx.CommandEvent) = {
 		dlg = PatternEditorDialog(this)
