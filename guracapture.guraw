@@ -1,0 +1,569 @@
+#!/usr/bin/env gura
+import(re)
+import(wx)
+import(jpeg)
+import(resource)
+import(translate)
+
+//-----------------------------------------------------------------------------
+// Control ID
+//-----------------------------------------------------------------------------
+[
+	ID_EditPattern
+] = wx.ID_HIGHEST..
+
+//-----------------------------------------------------------------------------
+// PatternEditorPanel
+//-----------------------------------------------------------------------------
+PatternEditorPanel = class(wx.Panel) {
+	TimerId = 1
+	YYYY = '2015'
+	YY = '15'
+	MM = '03'
+	DD = '21'
+	hh = '13'
+	mm = '24'
+	ss = '47'
+	QQ = 'AA'
+	N = '1'
+	__init__(parent:wx.Windowm) = {|parent|
+		outerBox = wx.BoxSizer(wx.VERTICAL)
+		this.SetSizer(outerBox)
+		vbox = wx.BoxSizer(wx.VERTICAL)
+		outerBox.Add(vbox, wx.SizerFlags(1).Expand().Border(wx.ALL, 2))
+		str = '${YYYY}/${YYYY}${MM}${DD}/${YYYY}_${MM}${DD}_${hh}${mm}${ss}${QQ}'
+		wx.StaticBox(this, wx.ID_ANY, 'Substitution Pattern'$) {|stb|
+			vboxIn = wx.StaticBoxSizer(stb, wx.VERTICAL)
+			vbox.Add(vboxIn, wx.SizerFlags().Expand())
+			gbox = wx.FlexGridSizer(nil, 2, 4, 8)
+			vboxIn.Add(gbox, wx.SizerFlags().Expand())
+			gbox.AddGrowableCol(1, 1)
+			wx.StaticText(this, wx.ID_ANY, 'Folder Name'$) {|ctrl|
+				gbox.Add(ctrl, wx.SizerFlags().Expand())
+			}
+			wx.TextCtrl(this, wx.ID_ANY, wx.GetApp().cfg['substPatternFolder']) {|ctrl|
+				gbox.Add(ctrl, wx.SizerFlags(1).Expand())
+				ctrl.Bind(wx.EVT_TEXT) {|event| this.OnText(event)}
+				this.textSubstPatternFolder = ctrl
+			}
+			wx.StaticText(this, wx.ID_ANY, 'File Name'$) {|ctrl|
+				gbox.Add(ctrl, wx.SizerFlags().Expand())
+			}
+			wx.TextCtrl(this, wx.ID_ANY, wx.GetApp().cfg['substPatternFile']) {|ctrl|
+				gbox.Add(ctrl, wx.SizerFlags(1).Expand())
+				ctrl.Bind(wx.EVT_TEXT) {|event| this.OnText(event)}
+				this.textSubstPatternFile = ctrl
+			}
+		}
+		str = format('Sample: '$ + '%s-%s-%s %s:%s:%s', YYYY, MM, DD, hh, mm, ss)
+		wx.StaticBox(this, wx.ID_ANY, str) {|stb|
+			vboxIn = wx.StaticBoxSizer(stb, wx.VERTICAL)
+			vbox.Add(vboxIn, wx.SizerFlags().Expand().Border(wx.TOP, 8))
+			gbox = wx.FlexGridSizer(nil, 2, 4, 8)
+			vboxIn.Add(gbox, wx.SizerFlags().Expand())
+			gbox.AddGrowableCol(1, 1)
+			wx.StaticText(this, wx.ID_ANY, 'Folder Name'$) {|ctrl|
+				gbox.Add(ctrl, wx.SizerFlags().Expand())
+			}
+			wx.StaticText(this, wx.ID_ANY, '',
+						  style => wx.SUNKEN_BORDER | wx.ST_NO_AUTORESIZE) {|ctrl|
+				gbox.Add(ctrl, wx.SizerFlags(1).Expand())
+				this.labelResultFolder = ctrl
+			}
+			wx.StaticText(this, wx.ID_ANY, 'File Name'$) {|ctrl|
+				gbox.Add(ctrl, wx.SizerFlags().Expand())
+			}
+			wx.StaticText(this, wx.ID_ANY, '',
+						  style => wx.SUNKEN_BORDER | wx.ST_NO_AUTORESIZE) {|ctrl|
+				gbox.Add(ctrl, wx.SizerFlags(1).Expand())
+				this.labelResultFile = ctrl
+			}
+		}
+		wx.HtmlWindow(this, style => wx.SUNKEN_BORDER) {|ctrl|
+			vbox.Add(ctrl, wx.SizerFlags(1).Expand().Border(wx.TOP, 8))
+			ctrl.SetPage('@PatternHelp'$)
+		}
+		wx.Button(this, wx.ID_OK, 'OK'$) {|ctrl|
+			vbox.Add(ctrl, wx.SizerFlags().Border(wx.TOP, 8).Align(wx.ALIGN_CENTRE))
+		}
+		this.timer = wx.Timer(this, TimerId)
+		this.Bind(wx.EVT_TIMER, this.TimerId) {|event| this.OnTimer(event)}
+		this.UpdateSample(this.textSubstPatternFolder, this.labelResultFolder)
+		this.UpdateSample(this.textSubstPatternFile, this.labelResultFile)
+	}
+	OnText(event:wx.CommandEvent) = {
+		this.timer.Start(500, true)
+	}
+	OnTimer(event:wx.TimerEvent) = {
+		this.UpdateSample(this.textSubstPatternFolder, this.labelResultFolder)
+		this.UpdateSample(this.textSubstPatternFile, this.labelResultFile)
+	}
+	UpdateSample(textSubstPattern:wx.TextCtrl, labelResult:wx.StaticText) = {
+		strTmpl = textSubstPattern.GetValue()
+		try {
+			str = strTmpl.embed()
+			labelResult.SetForegroundColour(wx.BLACK)
+			labelResult.SetLabel(str)
+		} catch {|e|
+			labelResult.SetForegroundColour(wx.RED)
+			labelResult.SetLabel(e.text)
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+// PatternEditorDialog
+//-----------------------------------------------------------------------------
+PatternEditorDialog = class(wx.Dialog) {
+	__init__(parent:wx.Window:nil, pos:wx.Point => wx.DefaultPosition) = \
+		{|parent, wx.ID_ANY, 'Edit Pattern'$, pos, wx.Size(600, 500),
+		  style => wx.DEFAULT_DIALOG_STYLE|
+		this.SetIcon(wx.IconFromXPMData(resource.sample_xpm))
+		outerBox = wx.BoxSizer(wx.VERTICAL)
+		this.SetSizer(outerBox)
+		vbox = wx.BoxSizer(wx.VERTICAL)
+		outerBox.Add(vbox, wx.SizerFlags(1).Expand().Border(wx.ALL, 2))
+		PatternEditorPanel(this) {|ctrl|
+			vbox.Add(ctrl, wx.SizerFlags(1).Expand())
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+// ImageInfo
+//-----------------------------------------------------------------------------
+ImageInfo = struct(pathName:string, image:image:nil):map
+
+//-----------------------------------------------------------------------------
+// ContainerInfo
+//-----------------------------------------------------------------------------
+ContainerInfo = struct(type:symbol, dirName:string, imageInfos[]:ImageInfo,
+					   y:number, height:number, rcExpand:wx.Rect, expandFlag:boolean)
+
+//-----------------------------------------------------------------------------
+// utilities
+//-----------------------------------------------------------------------------
+GetTimeStamp(pathName:string) = {
+	try {
+		exif = jpeg.exif(pathName)
+		m = exif.DateTime.value.match(r'(\d{4}):(\d{2}):(\d{2})\s+(\d{2}):(\d{2}):(\d{2})')
+		m && return(datetime(int(m[1..6])*))
+	} catch {}
+	try {
+		stat = path.stat(pathName)
+		mtime = stat.mtime
+		datetime(mtime.year, mtime.month, mtime.day, mtime.hour, mtime.min, mtime.sec)
+	} catch {
+		nil
+	}
+}
+
+MakePathNameFromDatetime(dt:datetime) = {
+	dirNameStorage = wx.GetApp().cfg['dirNameStorage']
+	YYYY = format('%04d', dt.year)
+	YY = format('%02d', dt.year % 100)
+	MM = format('%02d', dt.month)
+	DD = format('%02d', dt.day)
+	hh = format('%02d', dt.hour)
+	mm = format('%02d', dt.min)
+	ss = format('%02d', dt.sec)
+	QQ = 'AA'
+	N = '1'
+	[
+		path.join(dirNameStorage, wx.GetApp().cfg['substPatternFolder'].embed())
+		wx.GetApp().cfg['substPatternFile'].embed()
+	]
+}
+
+//-----------------------------------------------------------------------------
+// ImageViewer
+//-----------------------------------------------------------------------------
+ImageViewer = class(wx.Panel) {
+	TimerId = 1
+	sizeThumbnail = 180
+	wdSkip = 8, htSkip = 8
+	htBar = 20
+	htLabel = 16
+	wdMgnLeft = 20, wdMgnRight = 4
+	htMgnTop = 4, htMgnBottom = 8
+	htScrollLine = 100
+	htScrollPage = 400
+	fileNamePatternAcceptable = ['*.JPG', '*.jpg', '*.JPEG', '*.jpeg']
+	__init__(parent:wx.Windowm, style:number) = \
+						{|parent, style => (style | wx.HSCROLL | wx.VSCROLL)|
+		this.bmpScreen = nil
+		this.brushBg = wx.Brush(wx.WHITE, wx.BRUSHSTYLE_SOLID)
+		this.brushSlot = wx.Brush(wx.Colour(200, 200, 200), wx.BRUSHSTYLE_SOLID)
+		this.brushBarSource = wx.Brush(wx.Colour(192, 240, 192), wx.BRUSHSTYLE_SOLID)
+		this.brushBarStorage = wx.Brush(wx.Colour(240, 240, 240), wx.BRUSHSTYLE_SOLID)
+		this.containerInfosForSource = []
+		this.containerInfosForStorage = []
+		this.timer = wx.Timer(this, TimerId)
+		this.imageInfoQue = []
+		this.font = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL,
+							wx.FONTWEIGHT_NORMAL)
+		this.fontBold = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL,
+							wx.FONTWEIGHT_BOLD)
+		this.fontBoldUL = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL,
+							  wx.FONTWEIGHT_NORMAL)
+		this.fontBoldUL.SetUnderlined(true)
+		this.Bind(wx.EVT_ERASE_BACKGROUND) { /* nothing to do */ }
+		this.Bind(wx.EVT_SIZE) {|event| this.OnSize(event)}
+		this.Bind(wx.EVT_TIMER, this.TimerId) {|event| this.OnTimer(event)}
+		this.Bind(wx.EVT_PAINT) {|event| this.OnPaint(event)}
+		this.Bind(wx.EVT_SCROLLWIN) {|event| this.OnScrollWin(event)}
+		this.Bind(wx.EVT_MOUSEWHEEL) {|event| this.OnMouseWheel(event)}
+		this.Bind(wx.EVT_LEFT_DOWN) {|event| this.OnLeftDown(event)}
+		this.Bind(wx.EVT_LEFT_UP) {|event| this.OnLeftUp(event)}
+		this.Bind(wx.EVT_MOTION) {|event| this.OnMotion(event)}
+		this.Bind(wx.EVT_IDLE) {|event| this.OnIdle(event)}
+	}
+	UpdateContainerInfosForSource() = {
+		dirNameSource = wx.GetApp().cfg['dirNameSource']
+		pathNames = path.walk(dirNameSource, -1, fileNamePatternAcceptable*):file
+		this.containerInfosForSource = []
+		pathNames.each():xlist {|pathName|
+			dt = GetTimeStamp(pathName)
+			!dt && continue
+			[dirName, fileName] = MakePathNameFromDatetime(dt)
+			if (idx = (this.containerInfosForSource:*dirName == dirName).find():index) {
+				containerInfo = this.containerInfosForSource[idx]
+			} else {
+				containerInfo = ContainerInfo(
+						`source, dirName, [], 0, 0, wx.Rect(0, 0, 10, 20), false)
+				this.containerInfosForSource.add(containerInfo)
+			}
+			containerInfo.imageInfos.add(ImageInfo(path.join(dirName, fileName), nil))
+		}
+	}
+	UpdateContainerInfosForStorage() = {
+		dirNameStorage = wx.GetApp().cfg['dirNameStorage']
+		dirNames = (path.walk(dirNameStorage, 1, '*'):dir).sort(`descend):list
+		this.containerInfosForStorage = dirNames.each():xlist {|dirName|
+			pathNames = [path.dir(dirName, fileNamePatternAcceptable*)]
+			pathNames.isempty() && continue
+			ContainerInfo(
+					`storage, dirName.chop(),
+					ImageInfo(pathNames, nil), 0, 0, wx.Rect(0, 0, 10, 20), false)
+		}
+	}
+	UpdateContent() = {
+		[wdClient, htClient] = this.GetClientSizeWH()
+		y = 0
+		nCols = int((wdClient - (wdMgnLeft + wdMgnRight) + wdSkip) / (sizeThumbnail + wdSkip))
+		containerInfos = (
+				this.containerInfosForSource.each(),
+				this.containerInfosForStorage.each())
+		containerInfos.each {|containerInfo|
+			containerInfo.y = y
+			containerInfo.rcExpand.y = y
+			height = 0
+			height += htBar
+			if (containerInfo.expandFlag) {
+				height += htMgnTop
+				nRows = int((containerInfo.imageInfos.len() + nCols - 1) / nCols)
+				htImages = nRows * (sizeThumbnail + htLabel)
+				if (nRows > 1) { htImages += (nRows - 1) * htSkip }
+				height += htImages
+			}
+			height += htMgnBottom
+			containerInfo.height = height
+			y += height
+		}
+		htRequired = y
+		htScreen = max(htClient, htRequired)
+		this.bmpScreen = wx.BitmapWH(wdClient, htClient)
+		dc = wx.MemoryDC(this.bmpScreen)
+		dc.SetBackground(this.brushBg)
+		dc.Clear()
+		dc.SetPen(wx.NullPen)
+		dc.SetBrush(this.brushSlot)
+		dirNameStorage = wx.GetApp().cfg['dirNameStorage']
+		yTop = this.GetScrollPos(wx.VERTICAL)
+		yBottom = yTop + htClient
+		containerInfos.each {|containerInfo|
+			(containerInfo.y + containerInfo.height < yTop) && continue
+			(containerInfo.y >= yBottom) && break
+			y = containerInfo.y - yTop
+			imageInfos = containerInfo.imageInfos
+			dc.SetBrush(cond(containerInfo.type == `source,
+							 this.brushBarSource, this.brushBarStorage))
+			dc.DrawRectangle(0, y, wdClient, htBar)
+			dc.SetFont(this.fontBold)
+			dc.DrawText(cond(containerInfo.expandFlag, '-', '+'), 0, y)
+			str = containerInfo.dirName.mid(dirNameStorage.len() + 1)
+			if (m = str.match(r'(.*)#\d*')) {
+				str = m[1]
+				dc.SetTextForeground(wx.BLACK)
+				dc.DrawText(str, 20, y)
+				[wdStr, htStr] = dc.GetTextExtent(str)
+				dc.SetFont(this.fontBoldUL)
+				dc.SetTextForeground(wx.Colour(0, 0, 255))
+				dc.DrawText('Click to Fill Name'$, 20 + wdStr, y)
+				dc.SetFont(this.fontBold)
+				dc.SetTextForeground(wx.BLACK)
+			} else {
+				dc.DrawText(str, 20, y)
+			}
+			str = format('%d images'$, containerInfo.imageInfos.len())
+			[wdStr, htStr] = dc.GetTextExtent(str)
+			dc.DrawText(str, wdClient - wdStr, y)
+			if (containerInfo.expandFlag) {
+				dc.SetFont(this.font)
+				dc.SetBrush(this.brushSlot)
+				imageInfos.each {|imageInfo, idx|
+					xSlot = wdMgnLeft + (idx % nCols) * (sizeThumbnail + wdSkip)
+					ySlot = y + htBar + htMgnTop + \
+						int(idx / nCols) * (sizeThumbnail + htLabel + htSkip)
+					(ySlot + sizeThumbnail <= 0) && continue
+					(ySlot >= yBottom) && break
+					dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
+					if (imageInfo.image) {
+						xImage = xSlot + (sizeThumbnail - imageInfo.image.width) / 2
+						yImage = ySlot + (sizeThumbnail - imageInfo.image.height) / 2
+						dc.DrawBitmap(imageInfo.image, xImage, yImage, false)
+					}
+					str = path.filename(imageInfo.pathName)
+					[wdStr, htStr] = dc.GetTextExtent(str)
+					xStr = xSlot + (sizeThumbnail - wdStr) / 2
+					yStr = ySlot + sizeThumbnail
+					dc.DrawText(str, xStr, yStr)
+				}
+			}
+		}
+		this.SetScrollbar(wx.VERTICAL, this.GetScrollPos(wx.VERTICAL), htClient, htScreen)
+		this.Refresh()
+		this.Update()
+	}
+	SenseBox(pt:wx.Position, clickFlag:boolean) = {
+		x = pt.x, y = pt.y + this.GetScrollPos(wx.VERTICAL)
+		[this.containerInfosForSource, this.containerInfosForStorage].each {|containerInfos|
+			if (idx = containerInfos:*rcExpand:*ContainsXY(x, y).find():index) {
+				if (clickFlag) {
+					containerInfo = containerInfos[idx]
+					containerInfo.expandFlag = !containerInfo.expandFlag
+					if (containerInfo.expandFlag) {
+						this.imageInfoQue.append(containerInfo.imageInfos)
+					}
+				}
+				return(`expandButton)
+			}
+		}
+		`none
+	}
+	OnLeftDown(event:wx.MouseEvent) = {
+		rtn = this.SenseBox(event.GetPosition(), true)
+		this.UpdateContent()
+	}
+	OnLeftUp(event:wx.MouseEvent) = {
+	}
+	OnMotion(event:wx.MouseEvent) = {
+		rtn = this.SenseBox(event.GetPosition(), false)
+		if (rtn == `expandButton) {
+			this.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
+		} else {
+			this.SetCursor(wx.StockCursor(wx.CURSOR_ARROW))
+		}
+	}
+	OnSize(event:wx.SizeEvent) = {
+		this.timer.Start(300, true)
+		event.Skip()
+	}
+	OnTimer(event:wx.TimerEvent) = {
+		this.UpdateContent()
+	}
+	OnPaint(event:wx.PaintEvent) = {
+		dc = wx.PaintDC(this)
+		if (this.bmpScreen) {
+			x = this.GetScrollPos(wx.HORIZONTAL)
+			dc.DrawBitmap(this.bmpScreen, -x, 0, false)
+		}
+		dc = nil
+	}
+	OnScrollWin(event:wx.ScrollWinEvent) = {
+		eventType = event.GetEventType()
+		orientation = event.GetOrientation()
+		if (eventType == wx.EVT_SCROLLWIN_TOP.GetEventType()) {
+			pos = 0
+		} elsif (eventType == wx.EVT_SCROLLWIN_BOTTOM.GetEventType()) {
+			pos = this.GetScrollRange(orientation)
+		} elsif (eventType == wx.EVT_SCROLLWIN_LINEUP.GetEventType()) {
+			pos = this.GetScrollPos(orientation) - htScrollLine
+		} elsif (eventType == wx.EVT_SCROLLWIN_LINEDOWN.GetEventType()) {
+			pos = this.GetScrollPos(orientation) + htScrollLine
+		} elsif (eventType == wx.EVT_SCROLLWIN_PAGEUP.GetEventType()) {
+			pos = this.GetScrollPos(orientation) - htScrollPage
+		} elsif (eventType == wx.EVT_SCROLLWIN_PAGEDOWN.GetEventType()) {
+			pos = this.GetScrollPos(orientation) + htScrollPage
+		} elsif (eventType == wx.EVT_SCROLLWIN_THUMBTRACK.GetEventType()) {
+			pos = event.GetPosition()
+		} elsif (eventType == wx.EVT_SCROLLWIN_THUMBRELEASE.GetEventType()) {
+			pos = event.GetPosition()
+		}
+		this.SetScrollPos(orientation, pos)
+		this.UpdateContent()
+	}
+	OnMouseWheel(event:wx.MouseEvent) = {
+		orientation = wx.VERTICAL
+		rot = event.GetWheelRotation()
+		pos = this.GetScrollPos(orientation)
+		if (rot < 0) {
+			this.SetScrollPos(orientation, pos + 50)
+			this.UpdateContent()
+		} elsif (rot > 0) {
+			this.SetScrollPos(orientation, pos - 50)
+			this.UpdateContent()
+		}
+	}
+	OnIdle(event:wx.IdleEvent) = {
+		this.imageInfoQue.isempty() && return
+		updateFlag = false
+		repeat (5) {
+			this.imageInfoQue.isempty() && break
+			imageInfo = this.imageInfoQue[0]
+			this.imageInfoQue.erase(0)
+			try {
+				imageInfo.image = image(`rgb).read@jpeg(imageInfo.pathName, sizeThumbnail):fast:rough
+			} catch {
+				// nothing to do
+			} else {
+				updateFlag = true
+			}
+		}
+		updateFlag && this.UpdateContent()
+	}
+}
+
+//-----------------------------------------------------------------------------
+// MainPanel
+//-----------------------------------------------------------------------------
+MainPanel = class(wx.Panel) {
+	TimerId = 1
+	__init__(parent:wx.Windowm) = {|parent|
+		outerBox = wx.BoxSizer(wx.VERTICAL)
+		this.SetSizer(outerBox)
+		vbox = wx.BoxSizer(wx.VERTICAL)
+		outerBox.Add(vbox, wx.SizerFlags(1).Expand().Border(wx.ALL, 4))
+		wx.FlexGridSizer(nil, 3, 4, 4) {|gbox|
+			vbox.Add(gbox, wx.SizerFlags().Expand())
+			gbox.AddGrowableCol(1, 1)
+			wx.StaticText(this, wx.ID_ANY, 'Source Folder'$) {|ctrl|
+				gbox.Add(ctrl, wx.SizerFlags().Align(wx.ALIGN_CENTRE_VERTICAL))
+			}
+			wx.StaticText(this, wx.ID_ANY, wx.GetApp().cfg['dirNameSource'],
+						  style => wx.SUNKEN_BORDER) {|ctrl|
+				gbox.Add(ctrl, wx.SizerFlags(1).Expand())
+				this.textSource = ctrl
+			}
+			wx.Button(this, wx.ID_ANY, 'Browse'$) {|ctrl|
+				gbox.Add(ctrl, wx.SizerFlags())
+				this.Bind(wx.EVT_BUTTON, ctrl.GetId()) {|event|
+					this.OnBtn_SourceBrowse(event)
+				}
+			}
+			
+			wx.StaticText(this, wx.ID_ANY, 'Storage Folder'$) {|ctrl|
+				gbox.Add(ctrl, wx.SizerFlags().Align(wx.ALIGN_CENTRE_VERTICAL))
+			}
+			wx.StaticText(this, wx.ID_ANY, wx.GetApp().cfg['dirNameStorage'],
+						  style => wx.SUNKEN_BORDER) {|ctrl|
+				gbox.Add(ctrl, wx.SizerFlags(1).Expand())
+				this.textStorage = ctrl
+			}
+			wx.Button(this, wx.ID_ANY, 'Browse'$) {|ctrl|
+				gbox.Add(ctrl, wx.SizerFlags())
+				this.Bind(wx.EVT_BUTTON, ctrl.GetId()) {|event|
+					this.OnBtn_StorageBrowse(event)
+				}
+			}
+		}
+		wx.Button(this, wx.ID_ANY, 'Start to Copy Image Files'$, size => wx.Size(300, -1)) {|ctrl|
+			vbox.Add(ctrl, wx.SizerFlags().Align(wx.CENTRE).Border(wx.TOP, 4))
+		}
+		ImageViewer(this, style => wx.SUNKEN_BORDER) {|ctrl|
+			vbox.Add(ctrl, wx.SizerFlags(1).Expand().Border(wx.TOP, 4))
+			this.imageViewer = ctrl
+		}
+		this.timer = wx.Timer(this, TimerId)
+		this.imageViewer.UpdateContainerInfosForSource()
+		this.imageViewer.UpdateContainerInfosForStorage()
+		this.Bind(wx.EVT_TIMER, this.TimerId) {|event| this.OnTimer(event)}
+		this.timer.Start(1000, false)
+	}
+	OnBtn_SourceBrowse(event:wx.CommandEvent) = {
+		style = wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST
+		dlg = wx.DirDialog(this, 'Choose Source Folder'$,
+						   wx.GetApp().cfg['dirNameSource'], style)
+		if (dlg.ShowModal() == wx.ID_OK) {
+			dirName = dlg.GetPath()
+			wx.GetApp().cfg['dirNameSource'] = dirName
+			this.textSource.SetValue(dirName)
+			this.imageViewer.UpdateContainerInfosForSource()
+			this.imageViewer.UpdateContent()
+		}
+	}
+	OnBtn_StorageBrowse(event:wx.CommandEvent) = {
+		style = wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST
+		dlg = wx.DirDialog(this, 'Choose Storage Folder'$,
+						   wx.GetApp().cfg['dirNameStorage'], style)
+		if (dlg.ShowModal() == wx.ID_OK) {
+			dirName = dlg.GetPath()
+			wx.GetApp().cfg['dirNameStorage'] = dirName
+			this.textStorage.SetValue(dirName)
+			this.imageViewer.UpdateContainerInfosForStorage()
+			this.imageViewer.UpdateContent()
+		}
+	}
+	OnTimer(event:wx.TimerEvent) = {
+		//dirNames = path.glob('/Volumes/*/DCIM'):dir
+		//println(dirNames)
+	}
+}
+
+//-----------------------------------------------------------------------------
+// MainFrame
+//-----------------------------------------------------------------------------
+MainFrame = class(wx.Frame) {
+	__init__(pos:wx.Point => wx.DefaultPosition) = \
+					{|nil, wx.ID_ANY, 'Gura Capture', pos, wx.Size(800, 600)|
+		this.SetIcon(wx.IconFromXPMData(resource.sample_xpm))
+		menuBar = wx.MenuBar()
+		MainPanel(this)
+		this.SetMenuBar(menuBar)
+		wx.Menu {|m|
+			menuBar.Append(m, '&Tools'$)
+			m.Append(ID_EditPattern,		'&Edit Pattern...\tCtrl-E'$)
+		}								
+		this.Bind(wx.EVT_MENU, ID_EditPattern)	{|event| this.OnMenu_EditPattern(event)}
+	}
+	OnMenu_EditPattern(event:wx.CommandEvent) = {
+		dlg = PatternEditorDialog(this)
+		dlg.ShowModal()
+	}
+}
+
+//-----------------------------------------------------------------------------
+// App
+//-----------------------------------------------------------------------------
+App = class(wx.App) {
+	public {
+		cfg
+	}
+	OnInit() = {
+		this.cfg = %{
+			'substPatternFolder'	=> '${YYYY}/${YYYY}${MM}${DD} #${N}'
+			'substPatternFile'		=> '${YYYY}_${MM}${DD}_${hh}${mm}${ss}${QQ}'
+		}
+		//this.cfg['dirNameSource'] = '/Volumes/NO NAME'
+		this.cfg['dirNameSource'] = '/Users/ypsitau/tmp'
+		this.cfg['dirNameStorage'] = '/Users/ypsitau/Pictures'
+		frame = MainFrame()
+		frame.Show()
+		true
+		//dlg = PatternEditorDialog(nil)
+		//dlg.ShowModal()
+		//false
+	}
+}
+
+wx.IMPLEMENT_APP(App)
