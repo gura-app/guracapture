@@ -45,6 +45,7 @@ transDicts = %{
 'File Name'						=> 'ファイル名'
 'Edit'							=> '編集'
 'Start to Copy Image Files'		=> '画像ファイルのコピー開始'
+'Quit'							=> '中止'
 'Choose Source Folder'			=> 'コピー元のフォルダを選択してください'
 'Choose Storage Folder'			=> '格納先フォルダを選択してください'
 '%d images'						=> '%d 画像'

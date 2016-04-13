@@ -307,7 +307,11 @@ ImageViewer = class(wx.Panel) {
 							 this.brushBarSource, this.brushBarStorage))
 			dc.DrawRectangle(0, y, wdClient, htBar)
 			dc.SetFont(this.fontBold)
-			dc.DrawText(cond(containerInfo.expandFlag, '-', '+'), 0, y)
+			if (containerInfo.expandFlag) {
+				dc.DrawBitmap(g.bmpExpandMinus, 0, y, false)
+			} else {
+				dc.DrawBitmap(g.bmpExpandPlus, 0, y, false)
+			}
 			str = containerInfo.dirName.mid(dirNameStorage.len() + 1)
 			if (m = str.match(r'(.*)#\d*')) {
 				str = m[1]
@@ -513,16 +517,28 @@ MainPanel = class(wx.Panel) {
 				}
 			}
 		}
-		wx.Button(this, wx.ID_ANY, 'Start to Copy Image Files'$, size => wx.Size(300, -1)) {|ctrl|
-			vbox.Add(ctrl, wx.SizerFlags().Align(wx.CENTRE).Border(wx.TOP, 4))
-			this.Bind(wx.EVT_BUTTON, ctrl.GetId()) {|event|
-				this.OnBtn_CopyImageFiles(event)
+		wx.BoxSizer(wx.HORIZONTAL) {|hbox|
+			vbox.Add(hbox, wx.SizerFlags().Align(wx.CENTRE).Border(wx.TOP, 4))
+			wx.Button(this, wx.ID_ANY, 'Start to Copy Image Files'$,
+					  size => wx.Size(300, -1)) {|ctrl|
+				hbox.Add(ctrl, wx.SizerFlags().Expand())
+				this.Bind(wx.EVT_BUTTON, ctrl.GetId()) {|event|
+					this.OnBtn_CopyImageFiles(event)
+				}
+			}
+			wx.Button(this, wx.ID_ANY, 'Quit'$) {|ctrl|
+				hbox.Add(ctrl, wx.SizerFlags().Expand().Border(wx.LEFT, 8))
+				this.Bind(wx.EVT_BUTTON, ctrl.GetId()) {|event|
+					this.OnBtn_Quit(event)
+				}
+				this.btnQuit = ctrl
 			}
 		}
 		ImageViewer(this, style => wx.SUNKEN_BORDER) {|ctrl|
 			vbox.Add(ctrl, wx.SizerFlags(1).Expand().Border(wx.TOP, 4))
 			this.imageViewer = ctrl
 		}
+		this.btnQuit.Enable(false)
 		this.timer = wx.Timer(this, TimerId)
 		this.imageViewer.UpdateContainerInfosForSource()
 		this.imageViewer.UpdateContainerInfosForStorage()
