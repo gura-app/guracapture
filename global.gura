@@ -1,8 +1,22 @@
 #!/usr/bin/env gura
 import(yaml)
 
-fileNameCfg = path.join(sys.cfgdir, 'guracapture.yml')
-
+//-----------------------------------------------------------------------------
+// Variables
+//-----------------------------------------------------------------------------
+if (sys.platform == `mswin) {
+	fontName:public = 'Sans'
+	fileNameIcon:public		= path.join(sys.maindir, 'guracapture.ico')
+} elsif (sys.platform == `linux) {
+	fontName:public = 'Sans'
+	fileNameIcon:public		= path.join(sys.maindir, 'guracapture.ico')
+} elsif (sys.platform == `darwin) {
+	fontName:public = 'Hiragino Kaku Gothic Pro'
+	fileNameIcon:public		= path.join(sys.maindir, 'guracapture.icns')
+} else {
+	// nothing to do
+}
+fileNameCfg						= path.join(sys.cfgdir, 'guracapture.yml')
 xMainWindow:public				= -1
 yMainWindow:public				= -1
 wdMainWindow:public				= 800
@@ -12,6 +26,17 @@ dirNameStorage:public			= '/Users/ypsitau/Pictures'
 matchPatternFolder:public		= r'\d\d\d\d\d\d\d\d (.+)'
 substPatternFolder:public		= '${YYYY}/${YYYY}${MM}${DD} #${N}'
 substPatternFile:public			= '${YYYY}_${MM}${DD}_${hh}${mm}${ss}${QQ}'
+
+icon:public		= nil
+
+//-----------------------------------------------------------------------------
+// InitializeResource
+//-----------------------------------------------------------------------------
+InitializeResource() = {
+	icon:extern = wx.Icon(fileNameIcon,
+						  cond(fileNameIcon.endswith('.ico'),
+							   wx.BITMAP_TYPE_ICO, wx.BITMAP_TYPE_ICON))
+}
 
 //-----------------------------------------------------------------------------
 // LoadConfig

@@ -133,7 +133,7 @@ PatternEditorDialog = class(wx.Dialog) {
 	__init__(parent:wx.Window:nil, pos:wx.Point => wx.DefaultPosition) = \
 		{|parent, wx.ID_ANY, 'Edit Pattern'$, pos, wx.Size(600, 500),
 		  style => wx.DEFAULT_DIALOG_STYLE|
-		this.SetIcon(wx.IconFromXPMData(resource.sample_xpm))
+		this.SetIcon(g.icon)
 		outerBox = wx.BoxSizer(wx.VERTICAL)
 		this.SetSizer(outerBox)
 		vbox = wx.BoxSizer(wx.VERTICAL)
@@ -542,7 +542,7 @@ MainFrame = class(wx.Frame) {
 	__init__(pos:wx.Point => wx.DefaultPosition) = \
 		{|nil, wx.ID_ANY, 'Gura Capture', wx.Point(g.xMainWindow, g.yMainWindow),
 		  wx.Size(g.wdMainWindow, g.htMainWindow)|
-		this.SetIcon(wx.IconFromXPMData(resource.sample_xpm))
+		this.SetIcon(g.icon)
 		menuBar = wx.MenuBar()
 		MainPanel(this)
 		this.SetMenuBar(menuBar)
@@ -575,6 +575,7 @@ App = class(wx.App) {
 	OnInit() = {
 		!wx.utils.CheckGuraVersion(nil, 0, 7, 0) && return(false)
 		!wx.utils.CheckGuraPlatform(nil, [`mswin, `linux, `darwin]) && return(false)
+		g.InitializeResource()
 		g.LoadConfig()
 		frame = MainFrame()
 		frame.Show()
