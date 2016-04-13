@@ -1,5 +1,6 @@
 #!/usr/bin/env gura
 import(yaml)
+import(cairo)
 
 //-----------------------------------------------------------------------------
 // Variables
@@ -36,6 +37,40 @@ InitializeResource() = {
 	icon:extern = wx.Icon(fileNameIcon,
 						  cond(fileNameIcon.endswith('.ico'),
 							   wx.BITMAP_TYPE_ICO, wx.BITMAP_TYPE_ICON))
+	htImage = 20
+	image(`rgba, 16, htImage, `white) {|img|
+		img.cairo {|cr|
+			cairo.pattern.create_linear(0, 0, 16, 16) {|pat|
+				pat.add_color_stop_rgb(0, 1, .6, .6)
+				pat.add_color_stop_rgb(1, .7, .3, .3)
+				cr.set_source(pat)
+			}
+			cr.rectangle(2, 2, 13, 13)
+			cr.fill()
+			cr.set_source_color(`white)
+			cr.move_to(4, 8).rel_line_to(8, 0)
+			cr.move_to(8, 4).rel_line_to(0, 8)
+			cr.set_line_width(3)
+			cr.stroke()
+		}
+		
+	}
+	image(`rgba, 16, htImage, `white) {|img|
+		img.cairo {|cr|
+			cairo.pattern.create_linear(0, 0, 16, 16) {|pat|
+				pat.add_color_stop_rgb(0, .6, .6, 1)
+				pat.add_color_stop_rgb(1, .3, .3, .7)
+				cr.set_source(pat)
+			}
+			cr.rectangle(2, 2, 13, 13)
+			cr.fill()
+			cr.set_source_color(`white)
+			cr.move_to(4, 8).rel_line_to(8, 0)
+			cr.set_line_width(3)
+			cr.stroke()
+		}
+		
+	}
 }
 
 //-----------------------------------------------------------------------------
