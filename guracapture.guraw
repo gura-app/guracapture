@@ -147,7 +147,7 @@ PatternEditorDialog = class(wx.Dialog) {
 //-----------------------------------------------------------------------------
 // ImageInfo
 //-----------------------------------------------------------------------------
-ImageInfo = struct(pathName:string, image:image:nil):map
+ImageInfo = struct(pathName:string, pathNameSource:string:nil, image:image:nil):map
 
 //-----------------------------------------------------------------------------
 // ContainerInfo
@@ -207,7 +207,10 @@ ImageViewer = class(wx.Panel) {
 	__init__(parent:wx.Windowm, style:number) = \
 						{|parent, style => (style | wx.HSCROLL | wx.VSCROLL)|
 		this.bmpScreen = nil
+		this.penSlotBlank = wx.Pen(wx.Colour(64, 64, 64), 1, wx.PENSTYLE_DOT)
+		this.brushSlotBlank = wx.NullBrush
 		this.brushBg = wx.Brush(wx.WHITE, wx.BRUSHSTYLE_SOLID)
+		this.penSlot = wx.NullPen
 		this.brushSlot = wx.Brush(wx.Colour(200, 200, 200), wx.BRUSHSTYLE_SOLID)
 		this.brushBarSource = wx.Brush(wx.Colour(192, 240, 192), wx.BRUSHSTYLE_SOLID)
 		this.brushBarStorage = wx.Brush(wx.Colour(240, 240, 240), wx.BRUSHSTYLE_SOLID)
@@ -235,10 +238,10 @@ ImageViewer = class(wx.Panel) {
 	}
 	UpdateContainerInfosForSource() = {
 		dirNameSource = g.dirNameSource
-		pathNames = path.walk(dirNameSource, -1, fileNamePatternAcceptable*):file
+		pathNamesSource = path.walk(dirNameSource, -1, fileNamePatternAcceptable*):file
 		this.containerInfosForSource = []
-		pathNames.each():xlist {|pathName|
-			dt = GetTimeStamp(pathName)
+		pathNamesSource.each():xlist {|pathNameSource|
+			dt = GetTimeStamp(pathNameSource)
 			!dt && continue
 			[dirName, fileName] = MakePathNameFromDatetime(dt)
 			if (idx = (this.containerInfosForSource:*dirName == dirName).find():index) {
@@ -248,7 +251,8 @@ ImageViewer = class(wx.Panel) {
 						`source, dirName, [], 0, 0, wx.Rect(0, 0, 10, 20), false)
 				this.containerInfosForSource.add(containerInfo)
 			}
-			containerInfo.imageInfos.add(ImageInfo(path.join(dirName, fileName), nil))
+			containerInfo.imageInfos.add(ImageInfo(
+					path.join(dirName, fileName), pathNameSource, nil))
 		}
 	}
 	UpdateContainerInfosForStorage() = {
@@ -259,7 +263,7 @@ ImageViewer = class(wx.Panel) {
 			pathNames.isempty() && continue
 			ContainerInfo(
 					`storage, dirName.chop(),
-					ImageInfo(pathNames, nil), 0, 0, wx.Rect(0, 0, 10, 20), false)
+					ImageInfo(pathNames, nil, nil), 0, 0, wx.Rect(0, 0, 10, 20), false)
 		}
 	}
 	UpdateContent() = {
@@ -291,8 +295,6 @@ ImageViewer = class(wx.Panel) {
 		dc = wx.MemoryDC(this.bmpScreen)
 		dc.SetBackground(this.brushBg)
 		dc.Clear()
-		dc.SetPen(wx.NullPen)
-		dc.SetBrush(this.brushSlot)
 		dirNameStorage = g.dirNameStorage
 		yTop = this.GetScrollPos(wx.VERTICAL)
 		yBottom = yTop + htClient
@@ -301,6 +303,7 @@ ImageViewer = class(wx.Panel) {
 			(containerInfo.y >= yBottom) && break
 			y = containerInfo.y - yTop
 			imageInfos = containerInfo.imageInfos
+			dc.SetPen(wx.NullPen)
 			dc.SetBrush(cond(containerInfo.type == `source,
 							 this.brushBarSource, this.brushBarStorage))
 			dc.DrawRectangle(0, y, wdClient, htBar)
@@ -325,18 +328,30 @@ ImageViewer = class(wx.Panel) {
 			dc.DrawText(str, wdClient - wdStr, y)
 			if (containerInfo.expandFlag) {
 				dc.SetFont(this.font)
-				dc.SetBrush(this.brushSlot)
 				imageInfos.each {|imageInfo, idx|
 					xSlot = wdMgnLeft + (idx % nCols) * (sizeThumbnail + wdSkip)
 					ySlot = y + htBar + htMgnTop + \
 						int(idx / nCols) * (sizeThumbnail + htLabel + htSkip)
 					(ySlot + sizeThumbnail <= 0) && continue
 					(ySlot >= yBottom) && break
-					dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
-					if (imageInfo.image) {
-						xImage = xSlot + (sizeThumbnail - imageInfo.image.width) / 2
-						yImage = ySlot + (sizeThumbnail - imageInfo.image.height) / 2
-						dc.DrawBitmap(imageInfo.image, xImage, yImage, false)
+					if (imageInfo.pathNameSource) {
+						dc.SetPen(this.penSlotBlank)
+						dc.SetBrush(this.brushSlotBlank)
+						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
+						str = path.filename(imageInfo.pathNameSource)
+						[wdStr, htStr] = dc.GetTextExtent(str)
+						xStr = xSlot + (sizeThumbnail - wdStr) / 2
+						yStr = ySlot + (sizeThumbnail - htStr) / 2
+						dc.DrawText(str, xStr, yStr)
+					} else {
+						dc.SetPen(this.penSlot)
+						dc.SetBrush(this.brushSlot)
+						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
+						if (imageInfo.image) {
+							xImage = xSlot + (sizeThumbnail - imageInfo.image.width) / 2
+							yImage = ySlot + (sizeThumbnail - imageInfo.image.height) / 2
+							dc.DrawBitmap(imageInfo.image, xImage, yImage, false)
+						}
 					}
 					str = path.filename(imageInfo.pathName)
 					[wdStr, htStr] = dc.GetTextExtent(str)
@@ -349,6 +364,13 @@ ImageViewer = class(wx.Panel) {
 		this.SetScrollbar(wx.VERTICAL, this.GetScrollPos(wx.VERTICAL), htClient, htScreen)
 		this.Refresh()
 		this.Update()
+	}
+	CopyImageFiles() = {
+		this.containerInfosForSource.each {|containerInfo|
+			containerInfo.imageInfos.each {|imageInfo|
+				println(imageInfo.pathName)
+			}
+		}
 	}
 	SenseBox(pt:wx.Position, clickFlag:boolean) = {
 		x = pt.x, y = pt.y + this.GetScrollPos(wx.VERTICAL)
@@ -494,6 +516,9 @@ MainPanel = class(wx.Panel) {
 		}
 		wx.Button(this, wx.ID_ANY, 'Start to Copy Image Files'$, size => wx.Size(300, -1)) {|ctrl|
 			vbox.Add(ctrl, wx.SizerFlags().Align(wx.CENTRE).Border(wx.TOP, 4))
+			this.Bind(wx.EVT_BUTTON, ctrl.GetId()) {|event|
+				this.OnBtn_CopyImageFiles(event)
+			}
 		}
 		ImageViewer(this, style => wx.SUNKEN_BORDER) {|ctrl|
 			vbox.Add(ctrl, wx.SizerFlags(1).Expand().Border(wx.TOP, 4))
@@ -528,6 +553,9 @@ MainPanel = class(wx.Panel) {
 			this.imageViewer.UpdateContainerInfosForStorage()
 			this.imageViewer.UpdateContent()
 		}
+	}
+	OnBtn_CopyImageFiles(event:wx.CommandEvent) = {
+		this.imageViewer.CopyImageFiles()
 	}
 	OnTimer(event:wx.TimerEvent) = {
 		//dirNames = path.glob('/Volumes/*/DCIM'):dir
