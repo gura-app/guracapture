@@ -146,7 +146,15 @@ PatternEditorDialog = class(wx.Dialog) {
 //-----------------------------------------------------------------------------
 // ImageInfo
 //-----------------------------------------------------------------------------
-ImageInfo = struct(pathName:string, pathNameSource:string:nil, image:image:nil):map
+ImageInfo = struct(pathName:string, pathNameSource:string:nil, image:image:nil):map {
+	UpdateImage(sizeThumbnail:number) = {
+		try {
+			this.image = image(`rgb).read@jpeg(this.pathName, sizeThumbnail):fast:rough
+			return(true)
+		} catch {}
+		false
+	}
+}
 
 //-----------------------------------------------------------------------------
 // ContainerInfo
@@ -203,8 +211,8 @@ ImageViewer = class(wx.Panel) {
 	htScrollLine = 100
 	htScrollPage = 400
 	fileNamePatternAcceptable = ['*.JPG', '*.jpg', '*.JPEG', '*.jpeg']
-	__init__(parent:wx.Windowm, style:number) = \
-						{|parent, style => (style | wx.HSCROLL | wx.VSCROLL)|
+	__init__(parent:wx.Windowm, style:number) \
+		= {|parent, style => (style | wx.HSCROLL | wx.VSCROLL)|
 		this.bmpScreen = nil
 		this.penSlotBlank = wx.Pen(wx.Colour(64, 64, 64), 1, wx.PENSTYLE_DOT)
 		this.brushSlotBlank = wx.NullBrush
@@ -224,6 +232,10 @@ ImageViewer = class(wx.Panel) {
 		this.fontBoldUL = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL,
 							  wx.FONTWEIGHT_NORMAL)
 		this.fontBoldUL.SetUnderlined(true)
+		this.nCols = 1
+		this.gauge = wx.Gauge(this, wx.ID_ANY, 100, size => wx.Size(100, 8),
+							  pos => wx.Point(10, 10), style => wx.GA_HORIZONTAL)
+		this.gauge.Show(false)
 		this.Bind(wx.EVT_ERASE_BACKGROUND) { /* nothing to do */ }
 		this.Bind(wx.EVT_SIZE) {|event| this.OnSize(event)}
 		this.Bind(wx.EVT_TIMER, this.TimerId) {|event| this.OnTimer(event)}
@@ -247,7 +259,7 @@ ImageViewer = class(wx.Panel) {
 				containerInfo = this.containerInfosForSource[idx]
 			} else {
 				containerInfo = ContainerInfo(
-						`source, dirName, [], 0, 0, wx.Rect(0, 0, 10, 20), false)
+						`source, dirName, [], 0, 0, wx.Rect(0, 0, 20, 20), true)
 				this.containerInfosForSource.add(containerInfo)
 			}
 			containerInfo.imageInfos.add(ImageInfo(
@@ -262,13 +274,13 @@ ImageViewer = class(wx.Panel) {
 			pathNames.isempty() && continue
 			ContainerInfo(
 					`storage, dirName.chop(),
-					ImageInfo(pathNames, nil, nil), 0, 0, wx.Rect(0, 0, 10, 20), false)
+					ImageInfo(pathNames, nil, nil), 0, 0, wx.Rect(0, 0, 20, 20), false)
 		}
 	}
 	UpdateContent() = {
 		[wdClient, htClient] = this.GetClientSizeWH()
 		y = 0
-		nCols = int((wdClient - (wdMgnLeft + wdMgnRight) + wdSkip) / (sizeThumbnail + wdSkip))
+		this.nCols = int((wdClient - (wdMgnLeft + wdMgnRight) + wdSkip) / (sizeThumbnail + wdSkip))
 		containerInfos = (
 				this.containerInfosForSource.each(),
 				this.containerInfosForStorage.each())
@@ -279,7 +291,7 @@ ImageViewer = class(wx.Panel) {
 			height += htBar
 			if (containerInfo.expandFlag) {
 				height += htMgnTop
-				nRows = int((containerInfo.imageInfos.len() + nCols - 1) / nCols)
+				nRows = int((containerInfo.imageInfos.len() + this.nCols - 1) / this.nCols)
 				htImages = nRows * (sizeThumbnail + htLabel)
 				if (nRows > 1) { htImages += (nRows - 1) * htSkip }
 				height += htImages
@@ -295,12 +307,12 @@ ImageViewer = class(wx.Panel) {
 		dc.SetBackground(this.brushBg)
 		dc.Clear()
 		dirNameStorage = g.dirNameStorage
-		yTop = this.GetScrollPos(wx.VERTICAL)
-		yBottom = yTop + htClient
+		yScrollPos = this.GetScrollPos(wx.VERTICAL)
+		yBottom = yScrollPos + htClient
 		containerInfos.each {|containerInfo|
-			(containerInfo.y + containerInfo.height < yTop) && continue
+			(containerInfo.y + containerInfo.height < yScrollPos) && continue
 			(containerInfo.y >= yBottom) && break
-			y = containerInfo.y - yTop
+			y = containerInfo.y - yScrollPos
 			imageInfos = containerInfo.imageInfos
 			dc.SetPen(wx.NullPen)
 			dc.SetBrush(cond(containerInfo.type == `source,
@@ -332,12 +344,11 @@ ImageViewer = class(wx.Panel) {
 			if (containerInfo.expandFlag) {
 				dc.SetFont(this.font)
 				imageInfos.each {|imageInfo, idx|
-					xSlot = wdMgnLeft + (idx % nCols) * (sizeThumbnail + wdSkip)
-					ySlot = y + htBar + htMgnTop + \
-						int(idx / nCols) * (sizeThumbnail + htLabel + htSkip)
+					[xSlot, ySlot] = this.CalcSlotPosition(idx)
+					ySlot += y
 					(ySlot + sizeThumbnail <= 0) && continue
 					(ySlot >= yBottom) && break
-					if (imageInfo.pathNameSource) {
+					if (!imageInfo.image && imageInfo.pathNameSource) {
 						dc.SetPen(this.penSlotBlank)
 						dc.SetBrush(this.brushSlotBlank)
 						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
@@ -368,12 +379,67 @@ ImageViewer = class(wx.Panel) {
 		this.Refresh()
 		this.Update()
 	}
-	CopyImageFiles() = {
+	CalcSlotPosition(idx:number) = {
+		xSlot = wdMgnLeft + (idx % this.nCols) * (sizeThumbnail + wdSkip)
+		ySlot = htBar + htMgnTop + \
+			int(idx / this.nCols) * (sizeThumbnail + htLabel + htSkip)
+		[xSlot, ySlot]
+	}
+	CopyImageFiles(label:wx.StaticText) = {
+		[wdClient, htClient] = this.GetClientSizeWH()
+		this.quitFlag = false
+		wdGauge = sizeThumbnail - 10, htGauge = 10
+		this.gauge.SetSizeWH(wdGauge, htGauge)
+		nImages = 0
 		this.containerInfosForSource.each {|containerInfo|
-			containerInfo.imageInfos.each {|imageInfo|
-				println(imageInfo.pathName)
-			}
+			nImages += containerInfo.imageInfos.len()
 		}
+		iImage = 0
+		htSlot = sizeThumbnail + htLabel
+		this.containerInfosForSource.each {|containerInfo|
+			containerInfo.imageInfos.each {|imageInfo, idx|
+				label.SetLabel(format('%d/%d', iImage + 1, nImages))
+				dirName = path.dirname(imageInfo.pathName)
+				!path.exists(dirName) && fs.mkdir(dirName):tree
+				[xSlot, ySlot] = this.CalcSlotPosition(idx)
+				yScrollPos = this.GetScrollPos(wx.VERTICAL)
+				if (containerInfo.y < yScrollPos) {
+					yScrollPos = containerInfo.y
+					this.SetScrollPos(wx.VERTICAL, yScrollPos)
+				} elsif (containerInfo.y + ySlot + htSlot > yScrollPos + htClient) {
+					yScrollPos = containerInfo.y + ySlot + htSlot - htClient + 10
+					this.SetScrollPos(wx.VERTICAL, yScrollPos)
+				}
+				y = containerInfo.y - yScrollPos
+				ySlot += y
+				xGauge = xSlot + (sizeThumbnail - wdGauge) / 2
+				yGauge = ySlot + (sizeThumbnail - htGauge) / 2
+				this.gauge.MoveXY(xGauge, yGauge)
+				this.gauge.Show(true)
+				this.Update()
+				bytesProgress = 0
+				stat = path.stat(imageInfo.pathNameSource)
+				stream.copy(imageInfo.pathNameSource, imageInfo.pathName):finalize {|buff|
+					if (stat.size > 0) {
+						this.gauge.SetValue(bytesProgress * 100 / stat.size)
+						bytesProgress += buff.size
+					}
+					this.Update()
+					wx.App.GetInstance().Yield()
+					this.quitFlag && break
+				}
+				imageInfo.UpdateImage(sizeThumbnail) && this.UpdateContent()
+				this.gauge.SetValue(0)
+				this.quitFlag && break
+				iImage += 1
+			}
+			this.quitFlag && break
+		}
+		label.SetLabel(format('%d/%d', iImage + 1, nImages))
+		this.gauge.Show(false)
+	}
+	QuitCopy() = {
+		this.quitFlag = true
 	}
 	SenseBox(pt:wx.Position, clickFlag:boolean) = {
 		x = pt.x, y = pt.y + this.GetScrollPos(wx.VERTICAL)
@@ -382,7 +448,7 @@ ImageViewer = class(wx.Panel) {
 				if (clickFlag) {
 					containerInfo = containerInfos[idx]
 					containerInfo.expandFlag = !containerInfo.expandFlag
-					if (containerInfo.expandFlag) {
+					if (containerInfo.expandFlag && containerInfo.type == `storage) {
 						this.imageInfoQue.append(containerInfo.imageInfos)
 					}
 				}
@@ -406,7 +472,7 @@ ImageViewer = class(wx.Panel) {
 		}
 	}
 	OnSize(event:wx.SizeEvent) = {
-		this.timer.Start(300, true)
+		this.timer.Start(100, true)
 		event.Skip()
 	}
 	OnTimer(event:wx.TimerEvent) = {
@@ -448,10 +514,10 @@ ImageViewer = class(wx.Panel) {
 		rot = event.GetWheelRotation()
 		pos = this.GetScrollPos(orientation)
 		if (rot < 0) {
-			this.SetScrollPos(orientation, pos + 50)
+			this.SetScrollPos(orientation, pos + htScrollLine)
 			this.UpdateContent()
 		} elsif (rot > 0) {
-			this.SetScrollPos(orientation, pos - 50)
+			this.SetScrollPos(orientation, pos - htScrollLine)
 			this.UpdateContent()
 		}
 	}
@@ -462,11 +528,7 @@ ImageViewer = class(wx.Panel) {
 			this.imageInfoQue.isempty() && break
 			imageInfo = this.imageInfoQue[0]
 			this.imageInfoQue.erase(0)
-			try {
-				imageInfo.image = image(`rgb).read@jpeg(imageInfo.pathName, sizeThumbnail):fast:rough
-			} catch {
-				// nothing to do
-			} else {
+			if (imageInfo.UpdateImage(sizeThumbnail)) {
 				updateFlag = true
 			}
 		}
@@ -525,6 +587,13 @@ MainPanel = class(wx.Panel) {
 				this.Bind(wx.EVT_BUTTON, ctrl.GetId()) {|event|
 					this.OnBtn_CopyImageFiles(event)
 				}
+				this.btnStart = ctrl
+			}
+			wx.StaticText(this, wx.ID_ANY, '', size => wx.Size(100, -1),
+						  style => wx.ST_NO_AUTORESIZE | wx.ALIGN_CENTRE_HORIZONTAL | \
+						  			wx.BORDER_SUNKEN) {|ctrl|
+				hbox.Add(ctrl, wx.SizerFlags().Expand().Border(wx.LEFT, 8))
+				this.labelIndicator = ctrl
 			}
 			wx.Button(this, wx.ID_ANY, 'Quit'$) {|ctrl|
 				hbox.Add(ctrl, wx.SizerFlags().Expand().Border(wx.LEFT, 8))
@@ -570,7 +639,14 @@ MainPanel = class(wx.Panel) {
 		}
 	}
 	OnBtn_CopyImageFiles(event:wx.CommandEvent) = {
-		this.imageViewer.CopyImageFiles()
+		this.btnStart.Enable(false)
+		this.btnQuit.Enable(true)
+		this.imageViewer.CopyImageFiles(this.labelIndicator)
+		this.btnStart.Enable(true)
+		this.btnQuit.Enable(false)
+	}
+	OnBtn_Quit(event:wx.CommandEvent) = {
+		this.imageViewer.QuitCopy()
 	}
 	OnTimer(event:wx.TimerEvent) = {
 		//dirNames = path.glob('/Volumes/*/DCIM'):dir
