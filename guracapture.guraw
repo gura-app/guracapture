@@ -145,7 +145,7 @@ PatternEditorDialog = class(wx.Dialog) {
 //-----------------------------------------------------------------------------
 // Splitter
 //-----------------------------------------------------------------------------
-Splitter = struct(rc:wx.Rect, idxImage:number)
+Splitter = struct(rc:wx.Rect, idxImage:number, orientation:symbol)
 
 //-----------------------------------------------------------------------------
 // ImageInfo
@@ -353,11 +353,20 @@ ImageViewer = class(wx.Panel) {
 			dc.DrawText(str, wdClient - wdStr, containerInfo.y)
 			!containerInfo.expandFlag && continue
 			imageInfos.each {|imageInfo, idxImage|
-				iCol = idxImage % this.nCols
 				[xSlot, ySlot] = this.CalcSlotPosition(idxImage)
 				ySlot += containerInfo.y
 				(ySlot + sizeThumbnail <= yScrollPos) && continue
 				(ySlot >= yBottom) && break
+				iCol = idxImage % this.nCols
+				if (idxImage == 0) {
+					// nothing to do
+				} elsif (iCol == 0) {
+					rc = wx.Rect(0, ySlot - htSkip, wdClient, htSkip)
+					containerInfo.splitters.add(Splitter(rc, idxImage - 1, `horizontal))
+				} else {
+					rc = wx.Rect(xSlot - wdSkip, ySlot, wdSkip, sizeThumbnail)
+					containerInfo.splitters.add(Splitter(rc, idxImage - 1, `vertical))
+				}
 				if (imageInfo.stat == `source) {
 					dc.SetPen(this.penSlotBlank)
 					dc.SetBrush(this.brushSlotBlank)
@@ -478,25 +487,35 @@ ImageViewer = class(wx.Panel) {
 					if (containerInfo.expandFlag && containerInfo.type == `storage) {
 						this.imageInfoQue.append(containerInfo.imageInfos)
 					}
+					this.UpdateContent()
 				}
-				return(`expandButton)
+				this.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
+				return
+			}
+			containerInfos.each {|containerInfo|
+				if (idx = containerInfo.splitters:*rc:*ContainsXY(x, y).find():index) {
+					splitter = containerInfo.splitters[idx]
+					if (splitter.orientation == `vertical) {
+						this.SetCursor(wx.StockCursor(wx.CURSOR_SIZEWE))
+					} else {
+						this.SetCursor(wx.StockCursor(wx.CURSOR_SIZENS))
+					}
+					if (clickFlag) {
+						
+					}
+					return
+				}
 			}
 		}
-		`none
+		this.SetCursor(wx.StockCursor(wx.CURSOR_ARROW))
 	}
 	OnLeftDown(event:wx.MouseEvent) = {
-		rtn = this.SenseBox(event.GetPosition(), true)
-		this.UpdateContent()
+		this.SenseBox(event.GetPosition(), true)
 	}
 	OnLeftUp(event:wx.MouseEvent) = {
 	}
 	OnMotion(event:wx.MouseEvent) = {
-		rtn = this.SenseBox(event.GetPosition(), false)
-		if (rtn == `expandButton) {
-			this.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
-		} else {
-			this.SetCursor(wx.StockCursor(wx.CURSOR_ARROW))
-		}
+		this.SenseBox(event.GetPosition(), false)
 	}
 	OnSize(event:wx.SizeEvent) = {
 		this.timer.Start(100, true)
