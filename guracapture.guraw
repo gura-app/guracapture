@@ -146,7 +146,7 @@ PatternEditorDialog = class(wx.Dialog) {
 //-----------------------------------------------------------------------------
 // ImageInfo
 //-----------------------------------------------------------------------------
-ImageInfo = struct(pathName:string, pathNameSource:string:nil, image:image:nil):map {
+ImageInfo = struct(pathName:string, pathNameSource:string:nil, image:image:nil, stat:symbol):map {
 	UpdateImage(sizeThumbnail:number) = {
 		try {
 			this.image = image(`rgb).read@jpeg(this.pathName, sizeThumbnail):fast:rough
@@ -219,6 +219,8 @@ ImageViewer = class(wx.Panel) {
 		this.brushBg = wx.Brush(wx.WHITE, wx.BRUSHSTYLE_SOLID)
 		this.penSlot = wx.NullPen
 		this.brushSlot = wx.Brush(wx.Colour(200, 200, 200), wx.BRUSHSTYLE_SOLID)
+		this.penSlotProgress = wx.NullPen
+		this.brushSlotProgress = wx.Brush(wx.Colour(240, 240, 240), wx.BRUSHSTYLE_SOLID)
 		this.brushBarSource = wx.Brush(wx.Colour(192, 240, 192), wx.BRUSHSTYLE_SOLID)
 		this.brushBarStorage = wx.Brush(wx.Colour(240, 240, 240), wx.BRUSHSTYLE_SOLID)
 		this.containerInfosForSource = []
@@ -233,7 +235,7 @@ ImageViewer = class(wx.Panel) {
 							  wx.FONTWEIGHT_NORMAL)
 		this.fontBoldUL.SetUnderlined(true)
 		this.nCols = 1
-		this.gauge = wx.Gauge(this, wx.ID_ANY, 100, size => wx.Size(100, 8),
+		this.gauge = wx.Gauge(this, wx.ID_ANY, 100, size => wx.Size(10, 10),
 							  pos => wx.Point(10, 10), style => wx.GA_HORIZONTAL)
 		this.gauge.Show(false)
 		this.Bind(wx.EVT_ERASE_BACKGROUND) { /* nothing to do */ }
@@ -263,7 +265,7 @@ ImageViewer = class(wx.Panel) {
 				this.containerInfosForSource.add(containerInfo)
 			}
 			containerInfo.imageInfos.add(ImageInfo(
-					path.join(dirName, fileName), pathNameSource, nil))
+					path.join(dirName, fileName), pathNameSource, nil, `source))
 		}
 		!this.containerInfosForSource.isempty()
 	}
@@ -275,7 +277,7 @@ ImageViewer = class(wx.Panel) {
 			pathNames.isempty() && continue
 			ContainerInfo(
 					`storage, dirName.chop(),
-					ImageInfo(pathNames, nil, nil), 0, 0, wx.Rect(0, 0, 20, 20), false)
+					ImageInfo(pathNames, nil, nil, `storage), 0, 0, wx.Rect(0, 0, 20, 20), false)
 		}
 		!this.containerInfosForStorage.isempty()
 	}
@@ -344,13 +346,12 @@ ImageViewer = class(wx.Panel) {
 			[wdStr, htStr] = dc.GetTextExtent(str)
 			dc.DrawText(str, wdClient - wdStr, y)
 			if (containerInfo.expandFlag) {
-				dc.SetFont(this.font)
 				imageInfos.each {|imageInfo, idx|
 					[xSlot, ySlot] = this.CalcSlotPosition(idx)
 					ySlot += y
 					(ySlot + sizeThumbnail <= 0) && continue
 					(ySlot >= yBottom) && break
-					if (!imageInfo.image && imageInfo.pathNameSource) {
+					if (imageInfo.stat == `source) {
 						dc.SetPen(this.penSlotBlank)
 						dc.SetBrush(this.brushSlotBlank)
 						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
@@ -358,8 +359,10 @@ ImageViewer = class(wx.Panel) {
 						[wdStr, htStr] = dc.GetTextExtent(str)
 						xStr = xSlot + (sizeThumbnail - wdStr) / 2
 						yStr = ySlot + (sizeThumbnail - htStr) / 2
+						dc.SetFont(this.font)
+						dc.SetTextForeground(wx.Colour(140, 140, 140))
 						dc.DrawText(str, xStr, yStr)
-					} else {
+					} elsif (imageInfo.stat == `storage) {
 						dc.SetPen(this.penSlot)
 						dc.SetBrush(this.brushSlot)
 						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
@@ -368,11 +371,17 @@ ImageViewer = class(wx.Panel) {
 							yImage = ySlot + (sizeThumbnail - imageInfo.image.height) / 2
 							dc.DrawBitmap(imageInfo.image, xImage, yImage, false)
 						}
+					} elsif (imageInfo.stat == `progress) {
+						dc.SetPen(this.penSlotProgress)
+						dc.SetBrush(this.brushSlotProgress)
+						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
 					}
 					str = path.filename(imageInfo.pathName)
 					[wdStr, htStr] = dc.GetTextExtent(str)
 					xStr = xSlot + (sizeThumbnail - wdStr) / 2
 					yStr = ySlot + sizeThumbnail
+					dc.SetFont(this.font)
+					dc.SetTextForeground(wx.BLACK)
 					dc.DrawText(str, xStr, yStr)
 				}
 			}
@@ -420,10 +429,11 @@ ImageViewer = class(wx.Panel) {
 				y = containerInfo.y - yScrollPos
 				ySlot += y
 				xGauge = xSlot + (sizeThumbnail - wdGauge) / 2
-				yGauge = ySlot + 5
+				yGauge = ySlot + (sizeThumbnail - htGauge) / 2
 				this.gauge.MoveXY(xGauge, yGauge)
-				this.gauge.Show(true)
-				this.Update()
+				//this.gauge.Show(true)
+				imageInfo.stat = `progress
+				this.UpdateContent()
 				bytesProgress = 0
 				stat = path.stat(imageInfo.pathNameSource)
 				stream.copy(imageInfo.pathNameSource, imageInfo.pathName):finalize {|buff|
@@ -435,7 +445,12 @@ ImageViewer = class(wx.Panel) {
 					wx.App.GetInstance().Yield()
 					this.quitFlag && break
 				}
-				imageInfo.UpdateImage(sizeThumbnail) && this.UpdateContent()
+				if (imageInfo.UpdateImage(sizeThumbnail)) {
+					imageInfo.stat = `storage
+					this.UpdateContent()
+				} else {
+					imageInfo.stat = `source
+				}
 				this.gauge.SetValue(0)
 				this.quitFlag && break
 				idxImageWhole += 1
