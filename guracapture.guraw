@@ -32,7 +32,6 @@ PatternEditorPanel = class(wx.Panel) {
 		this.SetSizer(outerBox)
 		vbox = wx.BoxSizer(wx.VERTICAL)
 		outerBox.Add(vbox, wx.SizerFlags(1).Expand().Border(wx.ALL, 2))
-		str = '${YYYY}/${YYYY}${MM}${DD}/${YYYY}_${MM}${DD}_${hh}${mm}${ss}${QQ}'
 		wx.StaticBox(this, wx.ID_ANY, 'Substitution Pattern'$) {|stb|
 			vboxIn = wx.StaticBoxSizer(stb, wx.VERTICAL)
 			vbox.Add(vboxIn, wx.SizerFlags().Expand())
@@ -144,6 +143,11 @@ PatternEditorDialog = class(wx.Dialog) {
 }
 
 //-----------------------------------------------------------------------------
+// Splitter
+//-----------------------------------------------------------------------------
+Splitter = struct(rc:wx.Rect, idxImage:number)
+
+//-----------------------------------------------------------------------------
 // ImageInfo
 //-----------------------------------------------------------------------------
 ImageInfo = struct(pathName:string, pathNameSource:string:nil, image:image:nil, stat:symbol):map {
@@ -160,7 +164,8 @@ ImageInfo = struct(pathName:string, pathNameSource:string:nil, image:image:nil, 
 // ContainerInfo
 //-----------------------------------------------------------------------------
 ContainerInfo = struct(type:symbol, dirName:string, imageInfos[]:ImageInfo,
-					   y:number, height:number, rcExpand:wx.Rect, expandFlag:boolean)
+					   y:number, height:number, rcExpand:wx.Rect, splitters[]:Splitter,
+					   expandFlag:boolean)
 
 //-----------------------------------------------------------------------------
 // utilities
@@ -261,7 +266,7 @@ ImageViewer = class(wx.Panel) {
 				containerInfo = this.containerInfosForSource[idx]
 			} else {
 				containerInfo = ContainerInfo(
-						`source, dirName, [], 0, 0, wx.Rect(0, 0, 20, 20), false)
+						`source, dirName, [], 0, 0, wx.Rect(0, 0, 20, 20), [], false)
 				this.containerInfosForSource.add(containerInfo)
 			}
 			containerInfo.imageInfos.add(ImageInfo(
@@ -276,8 +281,8 @@ ImageViewer = class(wx.Panel) {
 			pathNames = [path.dir(dirName, fileNamePatternAcceptable*)]
 			pathNames.isempty() && continue
 			ContainerInfo(
-					`storage, dirName.chop(),
-					ImageInfo(pathNames, nil, nil, `storage), 0, 0, wx.Rect(0, 0, 20, 20), false)
+					`storage, dirName.chop(), ImageInfo(pathNames, nil, nil, `storage),
+					0, 0, wx.Rect(0, 0, 20, 20), [], false)
 		}
 		!this.containerInfosForStorage.isempty()
 	}
@@ -313,87 +318,88 @@ ImageViewer = class(wx.Panel) {
 		dirNameStorage = g.dirNameStorage
 		yScrollPos = this.GetScrollPos(wx.VERTICAL)
 		yBottom = yScrollPos + htClient
+		dc.SetDeviceOrigin(0, -yScrollPos)
 		containerInfos.each {|containerInfo|
+			containerInfo.rcsSplit = []
 			(containerInfo.y + containerInfo.height < yScrollPos) && continue
 			(containerInfo.y >= yBottom) && break
-			y = containerInfo.y - yScrollPos
 			imageInfos = containerInfo.imageInfos
 			dc.SetPen(wx.NullPen)
 			dc.SetBrush(cond(containerInfo.type == `source,
 							 this.brushBarSource, this.brushBarStorage))
-			dc.DrawRectangle(0, y, wdClient, htBar)
+			dc.DrawRectangle(0, containerInfo.y, wdClient, htBar)
 			dc.SetFont(this.fontBold)
 			if (containerInfo.expandFlag) {
-				dc.DrawBitmap(g.bmpExpandMinus, 0, y, false)
+				dc.DrawBitmap(g.bmpExpandMinus, 0, containerInfo.y, false)
 			} else {
-				dc.DrawBitmap(g.bmpExpandPlus, 0, y, false)
+				dc.DrawBitmap(g.bmpExpandPlus, 0, containerInfo.y, false)
 			}
 			str = containerInfo.dirName.mid(dirNameStorage.len() + 1)
 			if (m = str.match(r'(.*)#\d*')) {
 				str = m[1]
 				dc.SetTextForeground(wx.BLACK)
-				dc.DrawText(str, 20, y)
+				dc.DrawText(str, 20, containerInfo.y)
 				[wdStr, htStr] = dc.GetTextExtent(str)
 				dc.SetFont(this.fontBoldUL)
 				dc.SetTextForeground(wx.Colour(0, 0, 255))
-				dc.DrawText('Click to Fill Name'$, 20 + wdStr, y)
+				dc.DrawText('Click to Fill Name'$, 20 + wdStr, containerInfo.y)
 				dc.SetFont(this.fontBold)
 				dc.SetTextForeground(wx.BLACK)
 			} else {
-				dc.DrawText(str, 20, y)
+				dc.DrawText(str, 20, containerInfo.y)
 			}
 			str = format('%d images'$, containerInfo.imageInfos.len())
 			[wdStr, htStr] = dc.GetTextExtent(str)
-			dc.DrawText(str, wdClient - wdStr, y)
-			if (containerInfo.expandFlag) {
-				imageInfos.each {|imageInfo, idx|
-					[xSlot, ySlot] = this.CalcSlotPosition(idx)
-					ySlot += y
-					(ySlot + sizeThumbnail <= 0) && continue
-					(ySlot >= yBottom) && break
-					if (imageInfo.stat == `source) {
-						dc.SetPen(this.penSlotBlank)
-						dc.SetBrush(this.brushSlotBlank)
-						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
-						str = path.filename(imageInfo.pathNameSource)
-						[wdStr, htStr] = dc.GetTextExtent(str)
-						xStr = xSlot + (sizeThumbnail - wdStr) / 2
-						yStr = ySlot + (sizeThumbnail - htStr) / 2
-						dc.SetFont(this.font)
-						dc.SetTextForeground(wx.Colour(140, 140, 140))
-						dc.DrawText(str, xStr, yStr)
-					} elsif (imageInfo.stat == `storage) {
-						dc.SetPen(this.penSlot)
-						dc.SetBrush(this.brushSlot)
-						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
-						if (imageInfo.image) {
-							xImage = xSlot + (sizeThumbnail - imageInfo.image.width) / 2
-							yImage = ySlot + (sizeThumbnail - imageInfo.image.height) / 2
-							dc.DrawBitmap(imageInfo.image, xImage, yImage, false)
-						}
-					} elsif (imageInfo.stat == `progress) {
-						dc.SetPen(this.penSlotProgress)
-						dc.SetBrush(this.brushSlotProgress)
-						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
-					}
-					str = path.filename(imageInfo.pathName)
+			dc.DrawText(str, wdClient - wdStr, containerInfo.y)
+			!containerInfo.expandFlag && continue
+			imageInfos.each {|imageInfo, idxImage|
+				iCol = idxImage % this.nCols
+				[xSlot, ySlot] = this.CalcSlotPosition(idxImage)
+				ySlot += containerInfo.y
+				(ySlot + sizeThumbnail <= yScrollPos) && continue
+				(ySlot >= yBottom) && break
+				if (imageInfo.stat == `source) {
+					dc.SetPen(this.penSlotBlank)
+					dc.SetBrush(this.brushSlotBlank)
+					dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
+					str = path.filename(imageInfo.pathNameSource)
 					[wdStr, htStr] = dc.GetTextExtent(str)
 					xStr = xSlot + (sizeThumbnail - wdStr) / 2
-					yStr = ySlot + sizeThumbnail
+					yStr = ySlot + (sizeThumbnail - htStr) / 2
 					dc.SetFont(this.font)
-					dc.SetTextForeground(wx.BLACK)
+					dc.SetTextForeground(wx.Colour(140, 140, 140))
 					dc.DrawText(str, xStr, yStr)
+				} elsif (imageInfo.stat == `storage) {
+					dc.SetPen(this.penSlot)
+					dc.SetBrush(this.brushSlot)
+					dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
+					if (imageInfo.image) {
+						xImage = xSlot + (sizeThumbnail - imageInfo.image.width) / 2
+						yImage = ySlot + (sizeThumbnail - imageInfo.image.height) / 2
+						dc.DrawBitmap(imageInfo.image, xImage, yImage, false)
+					}
+				} elsif (imageInfo.stat == `progress) {
+					dc.SetPen(this.penSlotProgress)
+					dc.SetBrush(this.brushSlotProgress)
+					dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
 				}
+				str = path.filename(imageInfo.pathName)
+				[wdStr, htStr] = dc.GetTextExtent(str)
+				xStr = xSlot + (sizeThumbnail - wdStr) / 2
+				yStr = ySlot + sizeThumbnail
+				dc.SetFont(this.font)
+				dc.SetTextForeground(wx.BLACK)
+				dc.DrawText(str, xStr, yStr)
 			}
 		}
 		this.SetScrollbar(wx.VERTICAL, this.GetScrollPos(wx.VERTICAL), htClient, htScreen)
 		this.Refresh()
 		this.Update()
 	}
-	CalcSlotPosition(idx:number) = {
-		xSlot = wdMgnLeft + (idx % this.nCols) * (sizeThumbnail + wdSkip)
+	CalcSlotPosition(idxImage:number) = {
+		xSlot = wdMgnLeft + (idxImage % this.nCols) * (sizeThumbnail + wdSkip)
 		ySlot = htBar + htMgnTop + \
-			int(idx / this.nCols) * (sizeThumbnail + htLabel + htSkip)
+			int(idxImage / this.nCols) * (sizeThumbnail + htLabel + htSkip)
 		[xSlot, ySlot]
 	}
 	CopyImageFiles(label:wx.StaticText) = {
