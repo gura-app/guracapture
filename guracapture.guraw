@@ -679,7 +679,7 @@ MainPanel = class(wx.Panel) {
 		if (dlg.ShowModal() == wx.ID_OK) {
 			dirName = dlg.GetPath()
 			g.dirNameStorage = dirName
-			this.textStorage.SetValue(dirName)
+			this.textStorage.SetLabel(dirName)
 			this.imageViewer.UpdateContainerInfosForStorage()
 			this.imageViewer.UpdateContent()
 		}
