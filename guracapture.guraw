@@ -259,12 +259,13 @@ ImageViewer = class(wx.Panel) {
 				containerInfo = this.containerInfosForSource[idx]
 			} else {
 				containerInfo = ContainerInfo(
-						`source, dirName, [], 0, 0, wx.Rect(0, 0, 20, 20), true)
+						`source, dirName, [], 0, 0, wx.Rect(0, 0, 20, 20), false)
 				this.containerInfosForSource.add(containerInfo)
 			}
 			containerInfo.imageInfos.add(ImageInfo(
 					path.join(dirName, fileName), pathNameSource, nil))
 		}
+		!this.containerInfosForSource.isempty()
 	}
 	UpdateContainerInfosForStorage() = {
 		dirNameStorage = g.dirNameStorage
@@ -276,6 +277,7 @@ ImageViewer = class(wx.Panel) {
 					`storage, dirName.chop(),
 					ImageInfo(pathNames, nil, nil), 0, 0, wx.Rect(0, 0, 20, 20), false)
 		}
+		!this.containerInfosForStorage.isempty()
 	}
 	UpdateContent() = {
 		[wdClient, htClient] = this.GetClientSizeWH()
@@ -388,32 +390,37 @@ ImageViewer = class(wx.Panel) {
 	CopyImageFiles(label:wx.StaticText) = {
 		[wdClient, htClient] = this.GetClientSizeWH()
 		this.quitFlag = false
-		wdGauge = sizeThumbnail - 10, htGauge = 10
+		wdGauge = sizeThumbnail - 10, htGauge = -1
 		this.gauge.SetSizeWH(wdGauge, htGauge)
-		nImages = 0
-		this.containerInfosForSource.each {|containerInfo|
-			nImages += containerInfo.imageInfos.len()
-		}
-		iImage = 0
+		nImages = this.containerInfosForSource:*imageInfos:*len().sum()
+		idxImageWhole = 0
 		htSlot = sizeThumbnail + htLabel
+		yScrollPos = this.GetScrollPos(wx.VERTICAL)
+		containerInfo = this.containerInfosForSource.first()
+		if (containerInfo.y < yScrollPos) {
+			this.SetScrollPos(wx.VERTICAL, containerInfo.y)
+			this.UpdateContent()
+		}
 		this.containerInfosForSource.each {|containerInfo|
-			containerInfo.imageInfos.each {|imageInfo, idx|
-				label.SetLabel(format('%d/%d', iImage + 1, nImages))
+			if (!containerInfo.expandFlag) {
+				containerInfo.expandFlag = true
+				this.UpdateContent()
+			}
+			containerInfo.imageInfos.each {|imageInfo, idxImageInfo|
+				label.SetLabel(format('%d/%d', idxImageWhole + 1, nImages))
 				dirName = path.dirname(imageInfo.pathName)
 				!path.exists(dirName) && fs.mkdir(dirName):tree
-				[xSlot, ySlot] = this.CalcSlotPosition(idx)
+				[xSlot, ySlot] = this.CalcSlotPosition(idxImageInfo)
 				yScrollPos = this.GetScrollPos(wx.VERTICAL)
-				if (containerInfo.y < yScrollPos) {
-					yScrollPos = containerInfo.y
+				if (containerInfo.y + ySlot + htSlot > yScrollPos + htClient) {
+					yScrollPos = containerInfo.y + ySlot + htSlot - htClient
 					this.SetScrollPos(wx.VERTICAL, yScrollPos)
-				} elsif (containerInfo.y + ySlot + htSlot > yScrollPos + htClient) {
-					yScrollPos = containerInfo.y + ySlot + htSlot - htClient + 10
-					this.SetScrollPos(wx.VERTICAL, yScrollPos)
+					this.UpdateContent()
 				}
 				y = containerInfo.y - yScrollPos
 				ySlot += y
 				xGauge = xSlot + (sizeThumbnail - wdGauge) / 2
-				yGauge = ySlot + (sizeThumbnail - htGauge) / 2
+				yGauge = ySlot + 5
 				this.gauge.MoveXY(xGauge, yGauge)
 				this.gauge.Show(true)
 				this.Update()
@@ -431,11 +438,10 @@ ImageViewer = class(wx.Panel) {
 				imageInfo.UpdateImage(sizeThumbnail) && this.UpdateContent()
 				this.gauge.SetValue(0)
 				this.quitFlag && break
-				iImage += 1
+				idxImageWhole += 1
 			}
 			this.quitFlag && break
 		}
-		label.SetLabel(format('%d/%d', iImage + 1, nImages))
 		this.gauge.Show(false)
 	}
 	QuitCopy() = {
@@ -553,7 +559,7 @@ MainPanel = class(wx.Panel) {
 				gbox.Add(ctrl, wx.SizerFlags().Align(wx.ALIGN_CENTRE_VERTICAL))
 			}
 			wx.StaticText(this, wx.ID_ANY, g.dirNameSource,
-						  style => wx.SUNKEN_BORDER) {|ctrl|
+						  style => wx.SUNKEN_BORDER | wx.ST_NO_AUTORESIZE) {|ctrl|
 				gbox.Add(ctrl, wx.SizerFlags(1).Expand())
 				this.textSource = ctrl
 			}
@@ -568,7 +574,7 @@ MainPanel = class(wx.Panel) {
 				gbox.Add(ctrl, wx.SizerFlags().Align(wx.ALIGN_CENTRE_VERTICAL))
 			}
 			wx.StaticText(this, wx.ID_ANY, g.dirNameStorage,
-						  style => wx.SUNKEN_BORDER) {|ctrl|
+						  style => wx.SUNKEN_BORDER | wx.ST_NO_AUTORESIZE) {|ctrl|
 				gbox.Add(ctrl, wx.SizerFlags(1).Expand())
 				this.textStorage = ctrl
 			}
@@ -609,7 +615,7 @@ MainPanel = class(wx.Panel) {
 		}
 		this.btnQuit.Enable(false)
 		this.timer = wx.Timer(this, TimerId)
-		this.imageViewer.UpdateContainerInfosForSource()
+		this.btnStart.Enable(this.imageViewer.UpdateContainerInfosForSource())
 		this.imageViewer.UpdateContainerInfosForStorage()
 		this.Bind(wx.EVT_TIMER, this.TimerId) {|event| this.OnTimer(event)}
 		this.timer.Start(1000, false)
@@ -621,8 +627,8 @@ MainPanel = class(wx.Panel) {
 		if (dlg.ShowModal() == wx.ID_OK) {
 			dirName = dlg.GetPath()
 			g.dirNameSource = dirName
-			this.textSource.SetValue(dirName)
-			this.imageViewer.UpdateContainerInfosForSource()
+			this.textSource.SetLabel(dirName)
+			this.btnStart.Enable(this.imageViewer.UpdateContainerInfosForSource())
 			this.imageViewer.UpdateContent()
 		}
 	}
