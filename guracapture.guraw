@@ -226,12 +226,16 @@ ImageViewer = class(wx.Panel) {
 		this.brushSlot = wx.Brush(wx.Colour(200, 200, 200), wx.BRUSHSTYLE_SOLID)
 		this.penSlotProgress = wx.NullPen
 		this.brushSlotProgress = wx.Brush(wx.Colour(240, 240, 240), wx.BRUSHSTYLE_SOLID)
-		this.brushBarSource = wx.Brush(wx.Colour(192, 240, 192), wx.BRUSHSTYLE_SOLID)
-		this.brushBarStorage = wx.Brush(wx.Colour(240, 240, 240), wx.BRUSHSTYLE_SOLID)
+		this.brushBarSource = wx.Brush(wx.Colour(240, 240, 192), wx.BRUSHSTYLE_SOLID)
+		this.brushBarStorage = wx.Brush(wx.Colour(192, 240, 192), wx.BRUSHSTYLE_SOLID)
+		this.brushBarSource@Sel = wx.Brush(wx.Colour(240, 240, 128), wx.BRUSHSTYLE_SOLID)
+		this.brushBarStorage@Sel = wx.Brush(wx.Colour(128, 240, 128), wx.BRUSHSTYLE_SOLID)
 		this.containerInfosForSource = []
 		this.containerInfosForStorage = []
 		this.timer = wx.Timer(this, TimerId)
 		this.imageInfoQue = []
+		this.containerInfoSel = nil
+		this.imageInfoSel = nil
 		this.font = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL,
 							wx.FONTWEIGHT_NORMAL)
 		this.fontBold = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL,
@@ -252,7 +256,17 @@ ImageViewer = class(wx.Panel) {
 		this.Bind(wx.EVT_LEFT_DOWN) {|event| this.OnLeftDown(event)}
 		this.Bind(wx.EVT_LEFT_UP) {|event| this.OnLeftUp(event)}
 		this.Bind(wx.EVT_MOTION) {|event| this.OnMotion(event)}
+		this.Bind(wx.EVT_KEY_DOWN) {|event| this.OnKeyDown(event)}
 		this.Bind(wx.EVT_IDLE) {|event| this.OnIdle(event)}
+	}
+	InitSelection() = {
+		this.containerInfoSel = nil
+		this.imageInfoSel = nil
+		if (!this.containerInfosForSource.isempty()) {
+			this.containerInfoSel = this.containerInfosForSource.first()
+		} elsif (!this.containerInfosForStorage.isempty()) {
+			this.containerInfoSel = this.containerInfosForStorage.first()
+		}
 	}
 	UpdateContainerInfosForSource() = {
 		dirNameSource = g.dirNameSource
@@ -323,82 +337,91 @@ ImageViewer = class(wx.Panel) {
 			containerInfo.rcsSplit = []
 			(containerInfo.y + containerInfo.height < yScrollPos) && continue
 			(containerInfo.y >= yBottom) && break
-			imageInfos = containerInfo.imageInfos
-			dc.SetPen(wx.NullPen)
-			dc.SetBrush(cond(containerInfo.type == `source,
-							 this.brushBarSource, this.brushBarStorage))
-			dc.DrawRectangle(0, containerInfo.y, wdClient, htBar)
-			dc.SetFont(this.fontBold)
+			htDisp = containerInfo.y + containerInfo.height - yScrollPos
 			if (containerInfo.expandFlag) {
-				dc.DrawBitmap(g.bmpExpandMinus, 0, containerInfo.y, false)
-			} else {
-				dc.DrawBitmap(g.bmpExpandPlus, 0, containerInfo.y, false)
-			}
-			str = containerInfo.dirName.mid(dirNameStorage.len() + 1)
-			if (m = str.match(r'(.*)#\d*')) {
-				str = m[1]
-				dc.SetTextForeground(wx.BLACK)
-				dc.DrawText(str, 20, containerInfo.y)
-				[wdStr, htStr] = dc.GetTextExtent(str)
-				dc.SetFont(this.fontBoldUL)
-				dc.SetTextForeground(wx.Colour(0, 0, 255))
-				dc.DrawText('Click to Fill Name'$, 20 + wdStr, containerInfo.y)
-				dc.SetFont(this.fontBold)
-				dc.SetTextForeground(wx.BLACK)
-			} else {
-				dc.DrawText(str, 20, containerInfo.y)
-			}
-			str = format('%d images'$, containerInfo.imageInfos.len())
-			[wdStr, htStr] = dc.GetTextExtent(str)
-			dc.DrawText(str, wdClient - wdStr, containerInfo.y)
-			!containerInfo.expandFlag && continue
-			imageInfos.each {|imageInfo, idxImage|
-				[xSlot, ySlot] = this.CalcSlotPosition(idxImage)
-				ySlot += containerInfo.y
-				(ySlot + sizeThumbnail <= yScrollPos) && continue
-				(ySlot >= yBottom) && break
-				iCol = idxImage % this.nCols
-				if (idxImage == 0) {
-					// nothing to do
-				} elsif (iCol == 0) {
-					rc = wx.Rect(0, ySlot - htSkip, wdClient, htSkip)
-					containerInfo.splitters.add(Splitter(rc, idxImage - 1, `horizontal))
-				} else {
-					rc = wx.Rect(xSlot - wdSkip, ySlot, wdSkip, sizeThumbnail)
-					containerInfo.splitters.add(Splitter(rc, idxImage - 1, `vertical))
-				}
-				if (imageInfo.stat == `source) {
-					dc.SetPen(this.penSlotBlank)
-					dc.SetBrush(this.brushSlotBlank)
-					dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
-					str = path.filename(imageInfo.pathNameSource)
+				containerInfo.imageInfos.each {|imageInfo, idxImage|
+					[xSlot, ySlot] = this.CalcSlotPosition(idxImage)
+					ySlot += containerInfo.y
+					(ySlot + sizeThumbnail <= yScrollPos) && continue
+					(ySlot >= yBottom) && break
+					iCol = idxImage % this.nCols
+					if (idxImage == 0) {
+						// nothing to do
+					} elsif (iCol == 0) {
+						rc = wx.Rect(0, ySlot - htSkip, wdClient, htSkip)
+						containerInfo.splitters.add(Splitter(rc, idxImage - 1, `horizontal))
+					} else {
+						rc = wx.Rect(xSlot - wdSkip, ySlot, wdSkip, sizeThumbnail)
+						containerInfo.splitters.add(Splitter(rc, idxImage - 1, `vertical))
+					}
+					if (imageInfo.stat == `source) {
+						dc.SetPen(this.penSlotBlank)
+						dc.SetBrush(this.brushSlotBlank)
+						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
+						str = path.filename(imageInfo.pathNameSource)
+						[wdStr, htStr] = dc.GetTextExtent(str)
+						xStr = xSlot + (sizeThumbnail - wdStr) / 2
+						yStr = ySlot + (sizeThumbnail - htStr) / 2
+						dc.SetFont(this.font)
+						dc.SetTextForeground(wx.Colour(140, 140, 140))
+						dc.DrawText(str, xStr, yStr)
+					} elsif (imageInfo.stat == `storage) {
+						dc.SetPen(this.penSlot)
+						dc.SetBrush(this.brushSlot)
+						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
+						if (imageInfo.image) {
+							xImage = xSlot + (sizeThumbnail - imageInfo.image.width) / 2
+							yImage = ySlot + (sizeThumbnail - imageInfo.image.height) / 2
+							dc.DrawBitmap(imageInfo.image, xImage, yImage, false)
+						}
+					} elsif (imageInfo.stat == `progress) {
+						dc.SetPen(this.penSlotProgress)
+						dc.SetBrush(this.brushSlotProgress)
+						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
+					}
+					str = path.filename(imageInfo.pathName)
 					[wdStr, htStr] = dc.GetTextExtent(str)
 					xStr = xSlot + (sizeThumbnail - wdStr) / 2
-					yStr = ySlot + (sizeThumbnail - htStr) / 2
+					yStr = ySlot + sizeThumbnail
 					dc.SetFont(this.font)
-					dc.SetTextForeground(wx.Colour(140, 140, 140))
+					dc.SetTextForeground(wx.BLACK)
 					dc.DrawText(str, xStr, yStr)
-				} elsif (imageInfo.stat == `storage) {
-					dc.SetPen(this.penSlot)
-					dc.SetBrush(this.brushSlot)
-					dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
-					if (imageInfo.image) {
-						xImage = xSlot + (sizeThumbnail - imageInfo.image.width) / 2
-						yImage = ySlot + (sizeThumbnail - imageInfo.image.height) / 2
-						dc.DrawBitmap(imageInfo.image, xImage, yImage, false)
-					}
-				} elsif (imageInfo.stat == `progress) {
-					dc.SetPen(this.penSlotProgress)
-					dc.SetBrush(this.brushSlotProgress)
-					dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
 				}
-				str = path.filename(imageInfo.pathName)
+			}
+			if (htDisp > htBar) {
+				yBar = max(yScrollPos, containerInfo.y)
+				dc.SetPen(wx.NullPen)
+				if (containerInfo.is(this.containerInfoSel)) {
+					dc.SetBrush(cond(containerInfo.type == `source,
+									 this.brushBarSource@Sel, this.brushBarStorage@Sel))
+				} else {
+					dc.SetBrush(cond(containerInfo.type == `source,
+									 this.brushBarSource, this.brushBarStorage))
+				}
+				dc.DrawRectangle(0, yBar, wdClient, htBar)
+				dc.SetFont(this.fontBold)
+				if (containerInfo.expandFlag) {
+					dc.DrawBitmap(g.bmpExpandMinus, 0, yBar, false)
+				} else {
+					dc.DrawBitmap(g.bmpExpandPlus, 0, yBar, false)
+				}
+				str = containerInfo.dirName.mid(dirNameStorage.len() + 1)
+				if (m = str.match(r'(.*)#\d*')) {
+					str = m[1]
+					dc.SetTextForeground(wx.BLACK)
+					dc.DrawText(str, 20, yBar)
+					[wdStr, htStr] = dc.GetTextExtent(str)
+					dc.SetFont(this.fontBoldUL)
+					dc.SetTextForeground(wx.Colour(0, 0, 255))
+					dc.DrawText('Click to Fill Name'$, 20 + wdStr, yBar)
+					dc.SetFont(this.fontBold)
+					dc.SetTextForeground(wx.BLACK)
+				} else {
+					dc.DrawText(str, 20, yBar)
+				}
+				str = format('%d images'$, containerInfo.imageInfos.len())
 				[wdStr, htStr] = dc.GetTextExtent(str)
-				xStr = xSlot + (sizeThumbnail - wdStr) / 2
-				yStr = ySlot + sizeThumbnail
-				dc.SetFont(this.font)
-				dc.SetTextForeground(wx.BLACK)
-				dc.DrawText(str, xStr, yStr)
+				dc.DrawText(str, wdClient - wdStr, yBar)
 			}
 		}
 		this.SetScrollbar(wx.VERTICAL, this.GetScrollPos(wx.VERTICAL), htClient, htScreen)
@@ -477,6 +500,11 @@ ImageViewer = class(wx.Panel) {
 	QuitCopy() = {
 		this.quitFlag = true
 	}
+	ChangeExpandStatus(containerInfo:ContainerInfo) = {
+		if (containerInfo.expandFlag && containerInfo.type == `storage) {
+			this.imageInfoQue.append(containerInfo.imageInfos)
+		}
+	}
 	SenseBox(pt:wx.Position, clickFlag:boolean) = {
 		x = pt.x, y = pt.y + this.GetScrollPos(wx.VERTICAL)
 		[this.containerInfosForSource, this.containerInfosForStorage].each {|containerInfos|
@@ -484,9 +512,7 @@ ImageViewer = class(wx.Panel) {
 				if (clickFlag) {
 					containerInfo = containerInfos[idx]
 					containerInfo.expandFlag = !containerInfo.expandFlag
-					if (containerInfo.expandFlag && containerInfo.type == `storage) {
-						this.imageInfoQue.append(containerInfo.imageInfos)
-					}
+					this.ChangeExpandStatus(containerInfo)
 					this.UpdateContent()
 				}
 				this.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
@@ -565,6 +591,52 @@ ImageViewer = class(wx.Panel) {
 		} elsif (rot > 0) {
 			this.SetScrollPos(orientation, pos - htScrollLine)
 			this.UpdateContent()
+		}
+	}
+	OnKeyDown(event:wx.KeyEvent) = {
+		keyCode = event.GetKeyCode()
+		if (keyCode == wx.WXK_UP) {
+			idx = this.containerInfosForSource.find(this.containerInfoSel):index
+			if (idx) {
+				if (idx > 0) {
+					this.containerInfoSel = this.containerInfosForSource[idx - 1]
+				}
+			} else {
+				idx = this.containerInfosForStorage.find(this.containerInfoSel):index
+				if (idx > 0) {
+					this.containerInfoSel = this.containerInfosForStorage[idx - 1]
+				} elsif (!this.containerInfosForSource.isempty()) {
+					this.containerInfoSel = this.containerInfosForSource.last()
+				}
+			}
+			this.UpdateContent()
+		} elsif (keyCode == wx.WXK_DOWN) {
+			idx = this.containerInfosForSource.find(this.containerInfoSel):index
+			if (idx) {
+				if (idx + 1 < this.containerInfosForSource.len()) {
+					this.containerInfoSel = this.containerInfosForSource[idx + 1]
+				} elsif (!this.containerInfosForStorage.isempty()) {
+					this.containerInfoSel = this.containerInfosForStorage.first()
+				}
+			} else {
+				idx = this.containerInfosForStorage.find(this.containerInfoSel):index
+				if (idx + 1 < this.containerInfosForStorage.len()) {
+					this.containerInfoSel = this.containerInfosForStorage[idx + 1]
+				}
+			}
+			this.UpdateContent()
+		} elsif (keyCode == wx.WXK_LEFT) {
+			if (this.containerInfoSel) {
+				this.containerInfoSel.expandFlag = false
+				this.ChangeExpandStatus(this.containerInfoSel)
+				this.UpdateContent()
+			}
+		} elsif (keyCode == wx.WXK_RIGHT) {
+			if (this.containerInfoSel) {
+				this.containerInfoSel.expandFlag = true
+				this.ChangeExpandStatus(this.containerInfoSel)
+				this.UpdateContent()
+			}
 		}
 	}
 	OnIdle(event:wx.IdleEvent) = {
@@ -657,18 +729,19 @@ MainPanel = class(wx.Panel) {
 		this.timer = wx.Timer(this, TimerId)
 		this.btnStart.Enable(this.imageViewer.UpdateContainerInfosForSource())
 		this.imageViewer.UpdateContainerInfosForStorage()
+		this.imageViewer.InitSelection()
 		this.Bind(wx.EVT_TIMER, this.TimerId) {|event| this.OnTimer(event)}
 		this.timer.Start(1000, false)
 	}
 	OnBtn_SourceBrowse(event:wx.CommandEvent) = {
 		style = wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST
-		dlg = wx.DirDialog(this, 'Choose Source Folder'$,
-						   g.dirNameSource, style)
+		dlg = wx.DirDialog(this, 'Choose Source Folder'$, g.dirNameSource, style)
 		if (dlg.ShowModal() == wx.ID_OK) {
 			dirName = dlg.GetPath()
 			g.dirNameSource = dirName
 			this.textSource.SetLabel(dirName)
 			this.btnStart.Enable(this.imageViewer.UpdateContainerInfosForSource())
+			this.imageViewer.InitSelection()
 			this.imageViewer.UpdateContent()
 		}
 	}
@@ -681,6 +754,7 @@ MainPanel = class(wx.Panel) {
 			g.dirNameStorage = dirName
 			this.textStorage.SetLabel(dirName)
 			this.imageViewer.UpdateContainerInfosForStorage()
+			this.imageViewer.InitSelection()
 			this.imageViewer.UpdateContent()
 		}
 	}
