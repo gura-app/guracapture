@@ -163,7 +163,8 @@ ImageInfo = struct(pathName:string, pathNameSource:string:nil, image:wx.Bitmap:n
 //-----------------------------------------------------------------------------
 // ContainerInfo
 //-----------------------------------------------------------------------------
-ContainerInfo = struct(type:symbol, dirName:string, imageInfos[]:ImageInfo,
+ContainerInfo = struct(type:symbol, dirName:string, dirDispName:string,
+					   imageInfos[]:ImageInfo,
 					   y:number, height:number, rcExpand:wx.Rect, splitters[]:Splitter,
 					   expandFlag:boolean)
 
@@ -196,8 +197,10 @@ MakePathNameFromDatetime(dt:datetime) = {
 	ss = format('%02d', dt.sec)
 	QQ = 'AA'
 	N = '1'
+	dirDispName = g.substPatternFolder.embed()
 	[
-		path.join(dirNameStorage, g.substPatternFolder.embed())
+		path.join(dirNameStorage, dirDispName)
+		dirDispName
 		g.substPatternFile.embed()
 	]
 }
@@ -274,12 +277,12 @@ ImageViewer = class(wx.Panel) {
 		pathNamesSource.each():xlist {|pathNameSource|
 			dt = GetTimeStamp(pathNameSource)
 			!dt && continue
-			[dirName, fileName] = MakePathNameFromDatetime(dt)
+			[dirName, dirDispName, fileName] = MakePathNameFromDatetime(dt)
 			if (idx = (this.containerInfosForSource:*dirName == dirName).find():index) {
 				containerInfo = this.containerInfosForSource[idx]
 			} else {
 				containerInfo = ContainerInfo(
-						`source, dirName, [], 0, 0, wx.Rect(0, 0, 20, 20), [], false)
+						`source, dirName, dirDispName, [], 0, 0, wx.Rect(0, 0, 20, 20), [], false)
 				this.containerInfosForSource.add(containerInfo)
 			}
 			containerInfo.imageInfos.add(ImageInfo(
@@ -293,8 +296,11 @@ ImageViewer = class(wx.Panel) {
 		this.containerInfosForStorage = dirNames.each():xlist {|dirName|
 			pathNames = [path.dir(dirName, fileNamePatternAcceptable*)]
 			pathNames.isempty() && continue
+			dirName = dirName.chop()
+			dirDispName = dirName.mid(dirNameStorage.len() + 1)
+			!dirDispName.match('^' + g.matchPatternFolder) && continue
 			ContainerInfo(
-					`storage, dirName.chop(), ImageInfo(pathNames, nil, nil, `storage),
+					`storage, dirName, dirDispName, ImageInfo(pathNames, nil, nil, `storage),
 					0, 0, wx.Rect(0, 0, 20, 20), [], false)
 		}
 		!this.containerInfosForStorage.isempty()
@@ -408,6 +414,7 @@ ImageViewer = class(wx.Panel) {
 			}
 			if (htDisp > htBar) {
 				yBar = max(yScrollPos, containerInfo.y)
+				containerInfo.rcExpand.y = yBar
 				dc.SetPen(wx.NullPen)
 				if (containerInfo.is(this.containerInfoSel) && !this.imageInfoSel) {
 					dc.SetBrush(cond(containerInfo.type == `source,
@@ -423,19 +430,23 @@ ImageViewer = class(wx.Panel) {
 				} else {
 					dc.DrawBitmap(g.bmpExpandPlus, 0, yBar, false)
 				}
-				str = containerInfo.dirName.mid(dirNameStorage.len() + 1)
-				if (m = str.match(r'(.*)#\d*')) {
-					str = m[1]
+				if (m = containerInfo.dirDispName.match('^' + g.matchPatternFolder + r' *')) {
+					strLeft = m[0]
+					strRight = containerInfo.dirDispName.mid(strLeft.len())
+					if (strRight.match('^#')) {
+						strRight = 'Click to Fill Name'$
+					}
 					dc.SetTextForeground(wx.BLACK)
-					dc.DrawText(str, 20, yBar)
-					[wdStr, htStr] = dc.GetTextExtent(str)
+					dc.DrawText(strLeft, 20, yBar)
+					[wdStr, htStr] = dc.GetTextExtent(strLeft)
 					dc.SetFont(this.fontBoldUL)
 					dc.SetTextForeground(wx.Colour(0, 0, 255))
-					dc.DrawText('Click to Fill Name'$, 20 + wdStr, yBar)
+					
+					dc.DrawText(strRight, 20 + wdStr, yBar)
 					dc.SetFont(this.fontBold)
 					dc.SetTextForeground(wx.BLACK)
 				} else {
-					dc.DrawText(str, 20, yBar)
+					dc.DrawText(containerInfo.dirDispName, 20, yBar)
 				}
 				str = format('%d images'$, containerInfo.imageInfos.len())
 				[wdStr, htStr] = dc.GetTextExtent(str)

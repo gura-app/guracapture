@@ -24,7 +24,7 @@ wdMainWindow:public				= 800
 htMainWindow:public				= 730
 dirNameSource:public			= '/Users/ypsitau/tmp'
 dirNameStorage:public			= '/Users/ypsitau/Pictures'
-matchPatternFolder:public		= r'\d\d\d\d\d\d\d\d (.+)'
+matchPatternFolder:public		= r'\d{4}/\d{8}'
 substPatternFolder:public		= '${YYYY}/${YYYY}${MM}${DD} #${N}'
 substPatternFile:public			= '${YYYY}_${MM}${DD}_${hh}${mm}${ss}${QQ}'
 
