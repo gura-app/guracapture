@@ -150,10 +150,10 @@ Splitter = struct(rc:wx.Rect, idxImage:number, orientation:symbol)
 //-----------------------------------------------------------------------------
 // ImageInfo
 //-----------------------------------------------------------------------------
-ImageInfo = struct(pathName:string, pathNameSource:string:nil, image:image:nil, stat:symbol):map {
+ImageInfo = struct(pathName:string, pathNameSource:string:nil, image:wx.Bitmap:nil, stat:symbol):map {
 	UpdateImage(sizeThumbnail:number) = {
 		try {
-			this.image = image(`rgb).read@jpeg(this.pathName, sizeThumbnail):fast:rough
+			this.image:wx.Bitmap = image(`rgb).read@jpeg(this.pathName, sizeThumbnail):fast:rough
 			return(true)
 		} catch {}
 		false
@@ -221,9 +221,11 @@ ImageViewer = class(wx.Panel) {
 		this.bmpScreen = nil
 		this.penSlotBlank = wx.Pen(wx.Colour(64, 64, 64), 1, wx.PENSTYLE_DOT)
 		this.brushSlotBlank = wx.NullBrush
+		this.brushSlotBlank@Sel = wx.Brush(wx.Colour(192, 192, 192), wx.BRUSHSTYLE_SOLID)
 		this.brushBg = wx.Brush(wx.WHITE, wx.BRUSHSTYLE_SOLID)
 		this.penSlot = wx.NullPen
 		this.brushSlot = wx.Brush(wx.Colour(200, 200, 200), wx.BRUSHSTYLE_SOLID)
+		this.brushSlot@Sel = wx.Brush(wx.Colour(128, 128, 128), wx.BRUSHSTYLE_SOLID)
 		this.penSlotProgress = wx.NullPen
 		this.brushSlotProgress = wx.Brush(wx.Colour(240, 240, 240), wx.BRUSHSTYLE_SOLID)
 		this.brushBarSource = wx.Brush(wx.Colour(240, 240, 192), wx.BRUSHSTYLE_SOLID)
@@ -244,9 +246,6 @@ ImageViewer = class(wx.Panel) {
 							  wx.FONTWEIGHT_NORMAL)
 		this.fontBoldUL.SetUnderlined(true)
 		this.nCols = 1
-		this.gauge = wx.Gauge(this, wx.ID_ANY, 100, size => wx.Size(10, 10),
-							  pos => wx.Point(10, 10), style => wx.GA_HORIZONTAL)
-		this.gauge.Show(false)
 		this.Bind(wx.EVT_ERASE_BACKGROUND) { /* nothing to do */ }
 		this.Bind(wx.EVT_SIZE) {|event| this.OnSize(event)}
 		this.Bind(wx.EVT_TIMER, this.TimerId) {|event| this.OnTimer(event)}
@@ -300,6 +299,24 @@ ImageViewer = class(wx.Panel) {
 		}
 		!this.containerInfosForStorage.isempty()
 	}
+	EnsureSelectionVisible() = {
+		[wdClient, htClient] = this.GetClientSizeWH()
+		yScrollPos = this.GetScrollPos(wx.VERTICAL)
+		if (this.imageInfoSel) {
+			idxImage = this.containerInfoSel.imageInfos.find(this.imageInfoSel):index
+			[xSlot, ySlot] = this.CalcSlotPosition(this.containerInfoSel, idxImage)
+			yTop = ySlot
+			yBottom = yTop + sizeThumbnail + htLabel
+		} else {
+			yTop = this.containerInfoSel.y
+			yBottom = yTop + htBar
+		}
+		if (yTop < yScrollPos) {
+			this.SetScrollPos(wx.VERTICAL, yTop)
+		} elsif (yBottom > yScrollPos + htClient) {
+			this.SetScrollPos(wx.VERTICAL, yBottom - htClient)
+		}
+	}
 	UpdateContent() = {
 		[wdClient, htClient] = this.GetClientSizeWH()
 		y = 0
@@ -331,19 +348,18 @@ ImageViewer = class(wx.Panel) {
 		dc.Clear()
 		dirNameStorage = g.dirNameStorage
 		yScrollPos = this.GetScrollPos(wx.VERTICAL)
-		yBottom = yScrollPos + htClient
 		dc.SetDeviceOrigin(0, -yScrollPos)
 		containerInfos.each {|containerInfo|
 			containerInfo.rcsSplit = []
 			(containerInfo.y + containerInfo.height < yScrollPos) && continue
-			(containerInfo.y >= yBottom) && break
+			(containerInfo.y >= yScrollPos + htClient) && break
 			htDisp = containerInfo.y + containerInfo.height - yScrollPos
 			if (containerInfo.expandFlag) {
 				containerInfo.imageInfos.each {|imageInfo, idxImage|
-					[xSlot, ySlot] = this.CalcSlotPosition(idxImage)
-					ySlot += containerInfo.y
+					selectedFlag = imageInfo.is(this.imageInfoSel)
+					[xSlot, ySlot] = this.CalcSlotPosition(containerInfo, idxImage)
 					(ySlot + sizeThumbnail <= yScrollPos) && continue
-					(ySlot >= yBottom) && break
+					(ySlot >= yScrollPos + htClient) && break
 					iCol = idxImage % this.nCols
 					if (idxImage == 0) {
 						// nothing to do
@@ -356,7 +372,8 @@ ImageViewer = class(wx.Panel) {
 					}
 					if (imageInfo.stat == `source) {
 						dc.SetPen(this.penSlotBlank)
-						dc.SetBrush(this.brushSlotBlank)
+						dc.SetBrush(cond(selectedFlag,
+										 this.brushSlotBlank@Sel, this.brushSlotBlank))
 						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
 						str = path.filename(imageInfo.pathNameSource)
 						[wdStr, htStr] = dc.GetTextExtent(str)
@@ -367,7 +384,8 @@ ImageViewer = class(wx.Panel) {
 						dc.DrawText(str, xStr, yStr)
 					} elsif (imageInfo.stat == `storage) {
 						dc.SetPen(this.penSlot)
-						dc.SetBrush(this.brushSlot)
+						dc.SetBrush(cond(selectedFlag,
+										 this.brushSlot@Sel, this.brushSlot))
 						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
 						if (imageInfo.image) {
 							xImage = xSlot + (sizeThumbnail - imageInfo.image.width) / 2
@@ -391,7 +409,7 @@ ImageViewer = class(wx.Panel) {
 			if (htDisp > htBar) {
 				yBar = max(yScrollPos, containerInfo.y)
 				dc.SetPen(wx.NullPen)
-				if (containerInfo.is(this.containerInfoSel)) {
+				if (containerInfo.is(this.containerInfoSel) && !this.imageInfoSel) {
 					dc.SetBrush(cond(containerInfo.type == `source,
 									 this.brushBarSource@Sel, this.brushBarStorage@Sel))
 				} else {
@@ -428,17 +446,15 @@ ImageViewer = class(wx.Panel) {
 		this.Refresh()
 		this.Update()
 	}
-	CalcSlotPosition(idxImage:number) = {
+	CalcSlotPosition(containerInfo:ContainerInfo, idxImage:number) = {
 		xSlot = wdMgnLeft + (idxImage % this.nCols) * (sizeThumbnail + wdSkip)
-		ySlot = htBar + htMgnTop + \
+		ySlot = containerInfo.y + htBar + htMgnTop + \
 			int(idxImage / this.nCols) * (sizeThumbnail + htLabel + htSkip)
 		[xSlot, ySlot]
 	}
 	CopyImageFiles(label:wx.StaticText) = {
 		[wdClient, htClient] = this.GetClientSizeWH()
 		this.quitFlag = false
-		wdGauge = sizeThumbnail - 10, htGauge = -1
-		this.gauge.SetSizeWH(wdGauge, htGauge)
 		nImages = this.containerInfosForSource:*imageInfos:*len().sum()
 		idxImageWhole = 0
 		htSlot = sizeThumbnail + htLabel
@@ -457,28 +473,17 @@ ImageViewer = class(wx.Panel) {
 				label.SetLabel(format('%d/%d', idxImageWhole + 1, nImages))
 				dirName = path.dirname(imageInfo.pathName)
 				!path.exists(dirName) && fs.mkdir(dirName):tree
-				[xSlot, ySlot] = this.CalcSlotPosition(idxImageInfo)
+				[xSlot, ySlot] = this.CalcSlotPosition(containerInfo, idxImageInfo)
 				yScrollPos = this.GetScrollPos(wx.VERTICAL)
-				if (containerInfo.y + ySlot + htSlot > yScrollPos + htClient) {
-					yScrollPos = containerInfo.y + ySlot + htSlot - htClient
+				if (ySlot + htSlot > yScrollPos + htClient) {
+					yScrollPos = ySlot + htSlot - htClient
 					this.SetScrollPos(wx.VERTICAL, yScrollPos)
 					this.UpdateContent()
 				}
-				y = containerInfo.y - yScrollPos
-				ySlot += y
-				xGauge = xSlot + (sizeThumbnail - wdGauge) / 2
-				yGauge = ySlot + (sizeThumbnail - htGauge) / 2
-				this.gauge.MoveXY(xGauge, yGauge)
-				//this.gauge.Show(true)
 				imageInfo.stat = `progress
 				this.UpdateContent()
-				bytesProgress = 0
 				stat = path.stat(imageInfo.pathNameSource)
-				stream.copy(imageInfo.pathNameSource, imageInfo.pathName):finalize {|buff|
-					if (stat.size > 0) {
-						this.gauge.SetValue(bytesProgress * 100 / stat.size)
-						bytesProgress += buff.size
-					}
+				stream.copy(imageInfo.pathNameSource, imageInfo.pathName):finalize {
 					this.Update()
 					wx.App.GetInstance().Yield()
 					this.quitFlag && break
@@ -489,13 +494,11 @@ ImageViewer = class(wx.Panel) {
 				} else {
 					imageInfo.stat = `source
 				}
-				this.gauge.SetValue(0)
 				this.quitFlag && break
 				idxImageWhole += 1
 			}
 			this.quitFlag && break
 		}
-		this.gauge.Show(false)
 	}
 	QuitCopy() = {
 		this.quitFlag = true
@@ -596,47 +599,97 @@ ImageViewer = class(wx.Panel) {
 	OnKeyDown(event:wx.KeyEvent) = {
 		keyCode = event.GetKeyCode()
 		if (keyCode == wx.WXK_UP) {
-			idx = this.containerInfosForSource.find(this.containerInfoSel):index
-			if (idx) {
-				if (idx > 0) {
-					this.containerInfoSel = this.containerInfosForSource[idx - 1]
+			if (this.imageInfoSel) {
+				imageInfos = this.containerInfoSel.imageInfos
+				idxImage = imageInfos.find(this.imageInfoSel):index
+				idxImage -= this.nCols
+				if (idxImage >= 0) {
+					this.imageInfoSel = imageInfos[idxImage]
+				} else {
+					this.imageInfoSel = nil
 				}
 			} else {
-				idx = this.containerInfosForStorage.find(this.containerInfoSel):index
-				if (idx > 0) {
-					this.containerInfoSel = this.containerInfosForStorage[idx - 1]
-				} elsif (!this.containerInfosForSource.isempty()) {
-					this.containerInfoSel = this.containerInfosForSource.last()
+				idxContainer = this.containerInfosForSource.find(this.containerInfoSel):index
+				if (idxContainer) {
+					if (idxContainer > 0) {
+						this.containerInfoSel = this.containerInfosForSource[idxContainer - 1]
+					}
+				} else {
+					idxContainer = this.containerInfosForStorage.find(this.containerInfoSel):index
+					if (idxContainer > 0) {
+						this.containerInfoSel = this.containerInfosForStorage[idxContainer - 1]
+					} elsif (!this.containerInfosForSource.isempty()) {
+						this.containerInfoSel = this.containerInfosForSource.last()
+					}
+				}
+				imageInfos = this.containerInfoSel.imageInfos
+				if (!imageInfos.isempty() && this.containerInfoSel.expandFlag) {
+					idxImage = int((imageInfos.len() - 1) / this.nCols) * this.nCols
+					this.imageInfoSel = imageInfos[idxImage]
 				}
 			}
+			this.EnsureSelectionVisible()
 			this.UpdateContent()
 		} elsif (keyCode == wx.WXK_DOWN) {
-			idx = this.containerInfosForSource.find(this.containerInfoSel):index
-			if (idx) {
-				if (idx + 1 < this.containerInfosForSource.len()) {
-					this.containerInfoSel = this.containerInfosForSource[idx + 1]
-				} elsif (!this.containerInfosForStorage.isempty()) {
-					this.containerInfoSel = this.containerInfosForStorage.first()
+			forwardContainerFlag = false
+			imageInfos = this.containerInfoSel.imageInfos
+			if (this.imageInfoSel) {
+				idxImage = imageInfos.find(this.imageInfoSel):index
+				idxImage += this.nCols
+				if (idxImage < imageInfos.len()) {
+					this.imageInfoSel = imageInfos[idxImage]
+				} else {
+					forwardContainerFlag = true
+					this.imageInfoSel = nil
 				}
+			} elsif (imageInfos.isempty() || !this.containerInfoSel.expandFlag) {
+				forwardContainerFlag = true
 			} else {
-				idx = this.containerInfosForStorage.find(this.containerInfoSel):index
-				if (idx + 1 < this.containerInfosForStorage.len()) {
-					this.containerInfoSel = this.containerInfosForStorage[idx + 1]
+				this.imageInfoSel = imageInfos.first()
+			}
+			if (forwardContainerFlag) {
+				idxContainer = this.containerInfosForSource.find(this.containerInfoSel):index
+				if (idxContainer) {
+					if (idxContainer + 1 < this.containerInfosForSource.len()) {
+						this.containerInfoSel = this.containerInfosForSource[idxContainer + 1]
+					} elsif (!this.containerInfosForStorage.isempty()) {
+						this.containerInfoSel = this.containerInfosForStorage.first()
+					}
+				} else {
+					idxContainer = this.containerInfosForStorage.find(this.containerInfoSel):index
+					if (idxContainer + 1 < this.containerInfosForStorage.len()) {
+						this.containerInfoSel = this.containerInfosForStorage[idxContainer + 1]
+					}
 				}
 			}
+			this.EnsureSelectionVisible()
 			this.UpdateContent()
 		} elsif (keyCode == wx.WXK_LEFT) {
-			if (this.containerInfoSel) {
+			imageInfos = this.containerInfoSel.imageInfos
+			if (this.imageInfoSel) {
+				idxImage = imageInfos.find(this.imageInfoSel):index
+				if (idxImage > 0) {
+					this.imageInfoSel = imageInfos[idxImage - 1]
+				}
+			} else {
 				this.containerInfoSel.expandFlag = false
 				this.ChangeExpandStatus(this.containerInfoSel)
-				this.UpdateContent()
 			}
+			this.EnsureSelectionVisible()
+			this.UpdateContent()
 		} elsif (keyCode == wx.WXK_RIGHT) {
-			if (this.containerInfoSel) {
+			imageInfos = this.containerInfoSel.imageInfos
+			if (this.imageInfoSel) {
+				idxImage = imageInfos.find(this.imageInfoSel):index
+				if (idxImage + 1 < imageInfos.len()) {
+					this.imageInfoSel = imageInfos[idxImage + 1]
+				}
+			} else {
 				this.containerInfoSel.expandFlag = true
 				this.ChangeExpandStatus(this.containerInfoSel)
-				this.UpdateContent()
 			}
+			this.EnsureSelectionVisible()
+			this.UpdateContent()
 		}
 	}
 	OnIdle(event:wx.IdleEvent) = {
