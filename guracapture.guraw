@@ -222,8 +222,8 @@ ImageViewer = class(wx.Panel) {
 	__init__(parent:wx.Windowm, style:number) \
 		= {|parent, style => (style | wx.HSCROLL | wx.VSCROLL)|
 		this.bmpScreen = nil
-		this.penSlotBlank = wx.Pen(wx.Colour(64, 64, 64), 1, wx.PENSTYLE_DOT)
-		this.brushSlotBlank = wx.NullBrush
+		this.penSlotBlank = wx.NullPen
+		this.brushSlotBlank = wx.Brush(wx.Colour(200, 200, 200), wx.BRUSHSTYLE_BDIAGONAL_HATCH)
 		this.brushSlotBlank@Sel = wx.Brush(wx.Colour(192, 192, 192), wx.BRUSHSTYLE_SOLID)
 		this.brushBg = wx.Brush(wx.WHITE, wx.BRUSHSTYLE_SOLID)
 		this.penSlot = wx.NullPen
@@ -235,7 +235,7 @@ ImageViewer = class(wx.Panel) {
 		this.fgBarText@Sel = wx.WHITE
 		this.fgBarLinkText = wx.Colour(0, 0, 255)
 		this.fgBarLinkText@Sel = wx.WHITE
-		this.brushBarSource = wx.Brush(wx.Colour(255, 255, 255), wx.BRUSHSTYLE_SOLID)
+		this.brushBarSource = wx.Brush(wx.Colour(248, 234, 195), wx.BRUSHSTYLE_SOLID)
 		this.brushBarStorage = wx.Brush(wx.Colour(255, 255, 255), wx.BRUSHSTYLE_SOLID)
 		this.brushBarSource@Sel = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
 		this.brushBarStorage@Sel = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
@@ -485,6 +485,8 @@ ImageViewer = class(wx.Panel) {
 			this.SetScrollPos(wx.VERTICAL, containerInfo.y)
 			this.UpdateContent()
 		}
+		nImagesSuccess = 0
+		nImagesFailed = 0
 		this.containerInfosForSource.each {|containerInfo|
 			if (!containerInfo.expandFlag) {
 				containerInfo.expandFlag = true
@@ -504,22 +506,32 @@ ImageViewer = class(wx.Panel) {
 				imageInfo.stat = `progress
 				this.UpdateContent()
 				stat = path.stat(imageInfo.pathNameSource)
-				stream.copy(imageInfo.pathNameSource, imageInfo.pathName):finalize {
-					this.Update()
-					wx.App.GetInstance().Yield()
-					this.quitFlag && break
-				}
-				if (imageInfo.UpdateImage(sizeThumbnail)) {
-					imageInfo.stat = `storage
-					this.UpdateContent()
+				successFlag = false
+				try {
+					stream.copy(imageInfo.pathNameSource, imageInfo.pathName):finalize {
+						this.Update()
+						wx.App.GetInstance().Yield()
+						this.quitFlag && break
+					}
+					if (imageInfo.UpdateImage(sizeThumbnail)) {
+						imageInfo.stat = `storage
+						this.UpdateContent()
+						successFlag = true
+					} else {
+						imageInfo.stat = `source
+					}
+				} catch {}
+				if (successFlag) {
+					nImagesSuccess += 1
 				} else {
-					imageInfo.stat = `source
+					nImagesFailed += 1
 				}
 				this.quitFlag && break
 				idxImageWhole += 1
 			}
 			this.quitFlag && break
 		}
+		[nImagesSuccess, nImagesFailed]
 	}
 	QuitCopy() = {
 		this.quitFlag = true
@@ -846,9 +858,15 @@ MainPanel = class(wx.Panel) {
 	OnBtn_CopyImageFiles(event:wx.CommandEvent) = {
 		this.btnStart.Enable(false)
 		this.btnQuit.Enable(true)
-		this.imageViewer.CopyImageFiles(this.labelIndicator)
+		[nImagesSuccess, nImagesFailed] = this.imageViewer.CopyImageFiles(this.labelIndicator)
 		this.btnStart.Enable(true)
 		this.btnQuit.Enable(false)
+		wx.MessageDialog(this,
+						 format('%d images have been successfully copied.'$, nImagesSuccess),
+						 'Copy Completed'$, wx.OK) {|dlg|
+			dlg.CentreOnParent()
+			dlg.ShowModal()
+		}
 	}
 	OnBtn_Quit(event:wx.CommandEvent) = {
 		this.imageViewer.QuitCopy()
