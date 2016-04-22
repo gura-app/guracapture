@@ -231,10 +231,14 @@ ImageViewer = class(wx.Panel) {
 		this.brushSlot@Sel = wx.Brush(wx.Colour(128, 128, 128), wx.BRUSHSTYLE_SOLID)
 		this.penSlotProgress = wx.NullPen
 		this.brushSlotProgress = wx.Brush(wx.Colour(240, 240, 240), wx.BRUSHSTYLE_SOLID)
-		this.brushBarSource = wx.Brush(wx.Colour(240, 240, 192), wx.BRUSHSTYLE_SOLID)
-		this.brushBarStorage = wx.Brush(wx.Colour(192, 240, 192), wx.BRUSHSTYLE_SOLID)
-		this.brushBarSource@Sel = wx.Brush(wx.Colour(240, 240, 128), wx.BRUSHSTYLE_SOLID)
-		this.brushBarStorage@Sel = wx.Brush(wx.Colour(128, 240, 128), wx.BRUSHSTYLE_SOLID)
+		this.fgBarText = wx.BLACK
+		this.fgBarText@Sel = wx.WHITE
+		this.fgBarLinkText = wx.Colour(0, 0, 255)
+		this.fgBarLinkText@Sel = wx.WHITE
+		this.brushBarSource = wx.Brush(wx.Colour(255, 255, 255), wx.BRUSHSTYLE_SOLID)
+		this.brushBarStorage = wx.Brush(wx.Colour(255, 255, 255), wx.BRUSHSTYLE_SOLID)
+		this.brushBarSource@Sel = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
+		this.brushBarStorage@Sel = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
 		this.containerInfosForSource = []
 		this.containerInfosForStorage = []
 		this.timer = wx.Timer(this, TimerId)
@@ -246,7 +250,7 @@ ImageViewer = class(wx.Panel) {
 		this.fontBold = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL,
 							wx.FONTWEIGHT_BOLD)
 		this.fontBoldUL = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL,
-							  wx.FONTWEIGHT_NORMAL)
+							  wx.FONTWEIGHT_BOLD)
 		this.fontBoldUL.SetUnderlined(true)
 		this.nCols = 1
 		this.Bind(wx.EVT_ERASE_BACKGROUND) { /* nothing to do */ }
@@ -413,10 +417,11 @@ ImageViewer = class(wx.Panel) {
 				}
 			}
 			if (htDisp > htBar) {
+				highlightFlag = containerInfo.is(this.containerInfoSel) && !this.imageInfoSel
 				yBar = max(yScrollPos, containerInfo.y)
 				containerInfo.rcExpand.y = yBar
 				dc.SetPen(wx.NullPen)
-				if (containerInfo.is(this.containerInfoSel) && !this.imageInfoSel) {
+				if (highlightFlag) {
 					dc.SetBrush(cond(containerInfo.type == `source,
 									 this.brushBarSource@Sel, this.brushBarStorage@Sel))
 				} else {
@@ -424,7 +429,6 @@ ImageViewer = class(wx.Panel) {
 									 this.brushBarSource, this.brushBarStorage))
 				}
 				dc.DrawRectangle(0, yBar, wdClient, htBar)
-				dc.SetFont(this.fontBold)
 				if (containerInfo.expandFlag) {
 					dc.DrawBitmap(g.bmpExpandMinus, 0, yBar, false)
 				} else {
@@ -436,20 +440,26 @@ ImageViewer = class(wx.Panel) {
 					if (strRight.match('^#')) {
 						strRight = 'Click to Fill Name'$
 					}
-					dc.SetTextForeground(wx.BLACK)
+					dc.SetFont(this.fontBold)
+					dc.SetTextForeground(cond(highlightFlag,
+											  this.fgBarText@Sel, this.fgBarText))
 					dc.DrawText(strLeft, 20, yBar)
 					[wdStr, htStr] = dc.GetTextExtent(strLeft)
 					dc.SetFont(this.fontBoldUL)
-					dc.SetTextForeground(wx.Colour(0, 0, 255))
-					
+					dc.SetTextForeground(cond(highlightFlag,
+											  this.fgBarLinkText@Sel, this.fgBarLinkText))
 					dc.DrawText(strRight, 20 + wdStr, yBar)
-					dc.SetFont(this.fontBold)
-					dc.SetTextForeground(wx.BLACK)
 				} else {
+					dc.SetFont(this.fontBold)
+					dc.SetTextForeground(cond(highlightFlag,
+											  this.fgBarText@Sel, this.fgBarText))
 					dc.DrawText(containerInfo.dirDispName, 20, yBar)
 				}
 				str = format('%d images'$, containerInfo.imageInfos.len())
 				[wdStr, htStr] = dc.GetTextExtent(str)
+				dc.SetFont(this.fontBold)
+				dc.SetTextForeground(cond(highlightFlag,
+										  this.fgBarText@Sel, this.fgBarText))
 				dc.DrawText(str, wdClient - wdStr, yBar)
 			}
 		}
@@ -515,8 +525,13 @@ ImageViewer = class(wx.Panel) {
 		this.quitFlag = true
 	}
 	ChangeExpandStatus(containerInfo:ContainerInfo) = {
-		if (containerInfo.expandFlag && containerInfo.type == `storage) {
-			this.imageInfoQue.append(containerInfo.imageInfos)
+		if (containerInfo.type == `storage) {
+			if (containerInfo.expandFlag) {
+				this.imageInfoQue.append(containerInfo.imageInfos)
+			} else {
+				indices = this.imageInfoQue.find(containerInfo.imageInfos):map:index:xlist
+				this.imageInfoQue.erase(indices*)
+			}
 		}
 	}
 	SenseBox(pt:wx.Position, clickFlag:boolean) = {
@@ -620,23 +635,29 @@ ImageViewer = class(wx.Panel) {
 					this.imageInfoSel = nil
 				}
 			} else {
+				selectImageFlag = false
 				idxContainer = this.containerInfosForSource.find(this.containerInfoSel):index
 				if (idxContainer) {
 					if (idxContainer > 0) {
 						this.containerInfoSel = this.containerInfosForSource[idxContainer - 1]
+						selectImageFlag = true
 					}
 				} else {
 					idxContainer = this.containerInfosForStorage.find(this.containerInfoSel):index
 					if (idxContainer > 0) {
 						this.containerInfoSel = this.containerInfosForStorage[idxContainer - 1]
+						selectImageFlag = true
 					} elsif (!this.containerInfosForSource.isempty()) {
 						this.containerInfoSel = this.containerInfosForSource.last()
+						selectImageFlag = true
 					}
 				}
-				imageInfos = this.containerInfoSel.imageInfos
-				if (!imageInfos.isempty() && this.containerInfoSel.expandFlag) {
-					idxImage = int((imageInfos.len() - 1) / this.nCols) * this.nCols
-					this.imageInfoSel = imageInfos[idxImage]
+				if (selectImageFlag) {
+					imageInfos = this.containerInfoSel.imageInfos
+					if (!imageInfos.isempty() && this.containerInfoSel.expandFlag) {
+						idxImage = int((imageInfos.len() - 1) / this.nCols) * this.nCols
+						this.imageInfoSel = imageInfos[idxImage]
+					}
 				}
 			}
 			this.EnsureSelectionVisible()
