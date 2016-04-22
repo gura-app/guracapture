@@ -55,7 +55,7 @@ transDicts = %{
 '&Tools'						=> 'ツール (&T)'
 '&Edit Pattern...\tCtrl-E'		=> 'パターン編集 (&E)...\tCtrl-E'
 '%d images have been successfully copied.' \
-								=> '%d 画像をコピーしました'	
+								=> '%d 画像を正常にコピーしました'	
 'Copy Completed'				=> 'コピー終了'
 }
 }
