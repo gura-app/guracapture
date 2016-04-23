@@ -734,6 +734,24 @@ ImageViewer = class(wx.Panel) {
 			}
 			this.EnsureSelectionVisible()
 			this.UpdateContent()
+		} elsif (keyCode == wx.WXK_HOME) {
+			imageInfos = this.containerInfoSel.imageInfos
+			if (this.imageInfoSel) {
+				this.imageInfoSel = imageInfos[0]
+			} else {
+				// nothing to do
+			}
+			this.EnsureSelectionVisible()
+			this.UpdateContent()
+		} elsif (keyCode == wx.WXK_END) {
+			imageInfos = this.containerInfoSel.imageInfos
+			if (this.imageInfoSel) {
+				this.imageInfoSel = imageInfos[-1]
+			} else {
+				// nothing to do
+			}
+			this.EnsureSelectionVisible()
+			this.UpdateContent()
 		}
 	}
 	OnIdle(event:wx.IdleEvent) = {
