@@ -213,6 +213,7 @@ ImageViewer = class(wx.Panel) {
 	sizeThumbnail = 180
 	wdSkip = 8, htSkip = 8
 	htBar = 20
+	htLabelMgn = 4
 	htLabel = 16
 	wdMgnLeft = 20, wdMgnRight = 4
 	htMgnTop = 4, htMgnBottom = 8
@@ -224,27 +225,31 @@ ImageViewer = class(wx.Panel) {
 		this.bmpScreen = nil
 		this.penSlotBlank = wx.NullPen
 		this.brushSlotBlank = wx.Brush(wx.Colour(200, 200, 200), wx.BRUSHSTYLE_BDIAGONAL_HATCH)
-		this.brushSlotBlank@Sel = wx.Brush(wx.Colour(192, 192, 192), wx.BRUSHSTYLE_SOLID)
+		this.brushSlotBlank@HL = wx.Brush(wx.Colour(192, 192, 192), wx.BRUSHSTYLE_SOLID)
 		this.brushBg = wx.Brush(wx.WHITE, wx.BRUSHSTYLE_SOLID)
 		this.penSlot = wx.NullPen
 		this.brushSlot = wx.Brush(wx.Colour(200, 200, 200), wx.BRUSHSTYLE_SOLID)
-		this.brushSlot@Sel = wx.Brush(wx.Colour(128, 128, 128), wx.BRUSHSTYLE_SOLID)
+		this.brushSlot@HL = wx.Brush(wx.Colour(128, 128, 128), wx.BRUSHSTYLE_SOLID)
 		this.penSlotProgress = wx.NullPen
 		this.brushSlotProgress = wx.Brush(wx.Colour(240, 240, 240), wx.BRUSHSTYLE_SOLID)
 		this.fgBarText = wx.BLACK
-		this.fgBarText@Sel = wx.WHITE
+		this.fgBarText@HL = wx.WHITE
 		this.fgBarLinkText = wx.Colour(0, 0, 255)
-		this.fgBarLinkText@Sel = wx.WHITE
+		this.fgBarLinkText@HL = wx.WHITE
+		this.fgLabelText = wx.BLACK
+		this.fgLabelText@HL = wx.WHITE
 		this.brushBarSource = wx.Brush(wx.Colour(248, 234, 195), wx.BRUSHSTYLE_SOLID)
 		this.brushBarStorage = wx.Brush(wx.Colour(255, 255, 255), wx.BRUSHSTYLE_SOLID)
-		this.brushBarSource@Sel = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
-		this.brushBarStorage@Sel = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
+		this.brushBarSource@HL = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
+		this.brushBarStorage@HL = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
+		this.brushLabel = wx.NullBrush
+		this.brushLabel@HL = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
 		this.containerInfosForSource = []
 		this.containerInfosForStorage = []
 		this.timer = wx.Timer(this, TimerId)
 		this.imageInfoQue = []
-		this.containerInfoSel = nil
-		this.imageInfoSel = nil
+		this.containerInfoHL = nil
+		this.imageInfoHL = nil
 		this.font = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL,
 							wx.FONTWEIGHT_NORMAL)
 		this.fontBold = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL,
@@ -266,12 +271,12 @@ ImageViewer = class(wx.Panel) {
 		this.Bind(wx.EVT_IDLE) {|event| this.OnIdle(event)}
 	}
 	InitSelection() = {
-		this.containerInfoSel = nil
-		this.imageInfoSel = nil
+		this.containerInfoHL = nil
+		this.imageInfoHL = nil
 		if (!this.containerInfosForSource.isempty()) {
-			this.containerInfoSel = this.containerInfosForSource.first()
+			this.containerInfoHL = this.containerInfosForSource.first()
 		} elsif (!this.containerInfosForStorage.isempty()) {
-			this.containerInfoSel = this.containerInfosForStorage.first()
+			this.containerInfoHL = this.containerInfosForStorage.first()
 		}
 	}
 	UpdateContainerInfosForSource() = {
@@ -312,13 +317,13 @@ ImageViewer = class(wx.Panel) {
 	EnsureSelectionVisible() = {
 		[wdClient, htClient] = this.GetClientSizeWH()
 		yScrollPos = this.GetScrollPos(wx.VERTICAL)
-		if (this.imageInfoSel) {
-			idxImage = this.containerInfoSel.imageInfos.find(this.imageInfoSel):index
-			[xSlot, ySlot] = this.CalcSlotPosition(this.containerInfoSel, idxImage)
+		if (this.imageInfoHL) {
+			idxImage = this.containerInfoHL.imageInfos.find(this.imageInfoHL):index
+			[xSlot, ySlot] = this.CalcSlotPosition(this.containerInfoHL, idxImage)
 			yTop = ySlot
-			yBottom = yTop + sizeThumbnail + htLabel
+			yBottom = yTop + sizeThumbnail + htLabelMgn + htLabel
 		} else {
-			yTop = this.containerInfoSel.y
+			yTop = this.containerInfoHL.y
 			yBottom = yTop + htBar
 		}
 		if (yTop < yScrollPos) {
@@ -342,7 +347,7 @@ ImageViewer = class(wx.Panel) {
 			if (containerInfo.expandFlag) {
 				height += htMgnTop
 				nRows = int((containerInfo.imageInfos.len() + this.nCols - 1) / this.nCols)
-				htImages = nRows * (sizeThumbnail + htLabel)
+				htImages = nRows * (sizeThumbnail + htLabelMgn + htLabel)
 				if (nRows > 1) { htImages += (nRows - 1) * htSkip }
 				height += htImages
 			}
@@ -366,7 +371,7 @@ ImageViewer = class(wx.Panel) {
 			htDisp = containerInfo.y + containerInfo.height - yScrollPos
 			if (containerInfo.expandFlag) {
 				containerInfo.imageInfos.each {|imageInfo, idxImage|
-					selectedFlag = imageInfo.is(this.imageInfoSel)
+					highlightFlag = imageInfo.is(this.imageInfoHL)
 					[xSlot, ySlot] = this.CalcSlotPosition(containerInfo, idxImage)
 					(ySlot + sizeThumbnail <= yScrollPos) && continue
 					(ySlot >= yScrollPos + htClient) && break
@@ -382,8 +387,8 @@ ImageViewer = class(wx.Panel) {
 					}
 					if (imageInfo.stat == `source) {
 						dc.SetPen(this.penSlotBlank)
-						dc.SetBrush(cond(selectedFlag,
-										 this.brushSlotBlank@Sel, this.brushSlotBlank))
+						dc.SetBrush(cond(highlightFlag,
+										 this.brushSlotBlank@HL, this.brushSlotBlank))
 						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
 						str = path.filename(imageInfo.pathNameSource)
 						[wdStr, htStr] = dc.GetTextExtent(str)
@@ -394,8 +399,8 @@ ImageViewer = class(wx.Panel) {
 						dc.DrawText(str, xStr, yStr)
 					} elsif (imageInfo.stat == `storage) {
 						dc.SetPen(this.penSlot)
-						dc.SetBrush(cond(selectedFlag,
-										 this.brushSlot@Sel, this.brushSlot))
+						dc.SetBrush(cond(highlightFlag,
+										 this.brushSlot@HL, this.brushSlot))
 						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
 						if (imageInfo.image) {
 							xImage = xSlot + (sizeThumbnail - imageInfo.image.width) / 2
@@ -410,20 +415,28 @@ ImageViewer = class(wx.Panel) {
 					str = path.filename(imageInfo.pathName)
 					[wdStr, htStr] = dc.GetTextExtent(str)
 					xStr = xSlot + (sizeThumbnail - wdStr) / 2
-					yStr = ySlot + sizeThumbnail
+					yStr = ySlot + sizeThumbnail + htLabelMgn + (htLabel - htStr) / 2
+					dc.SetPen(wx.NullPen)
 					dc.SetFont(this.font)
-					dc.SetTextForeground(wx.BLACK)
+					if (highlightFlag) {
+						dc.SetBrush(this.brushLabel@HL)
+						dc.SetTextForeground(this.fgLabelText@HL)
+					} else {
+						dc.SetBrush(this.brushLabel)
+						dc.SetTextForeground(this.fgLabelText)
+					}
+					dc.DrawRectangle(xStr, yStr, wdStr, htLabel)
 					dc.DrawText(str, xStr, yStr)
 				}
 			}
 			if (htDisp > htBar) {
-				highlightFlag = containerInfo.is(this.containerInfoSel) && !this.imageInfoSel
+				highlightFlag = containerInfo.is(this.containerInfoHL) && !this.imageInfoHL
 				yBar = max(yScrollPos, containerInfo.y)
 				containerInfo.rcExpand.y = yBar
 				dc.SetPen(wx.NullPen)
 				if (highlightFlag) {
 					dc.SetBrush(cond(containerInfo.type == `source,
-									 this.brushBarSource@Sel, this.brushBarStorage@Sel))
+									 this.brushBarSource@HL, this.brushBarStorage@HL))
 				} else {
 					dc.SetBrush(cond(containerInfo.type == `source,
 									 this.brushBarSource, this.brushBarStorage))
@@ -442,24 +455,24 @@ ImageViewer = class(wx.Panel) {
 					}
 					dc.SetFont(this.fontBold)
 					dc.SetTextForeground(cond(highlightFlag,
-											  this.fgBarText@Sel, this.fgBarText))
+											  this.fgBarText@HL, this.fgBarText))
 					dc.DrawText(strLeft, 20, yBar)
 					[wdStr, htStr] = dc.GetTextExtent(strLeft)
 					dc.SetFont(this.fontBoldUL)
 					dc.SetTextForeground(cond(highlightFlag,
-											  this.fgBarLinkText@Sel, this.fgBarLinkText))
+											  this.fgBarLinkText@HL, this.fgBarLinkText))
 					dc.DrawText(strRight, 20 + wdStr, yBar)
 				} else {
 					dc.SetFont(this.fontBold)
 					dc.SetTextForeground(cond(highlightFlag,
-											  this.fgBarText@Sel, this.fgBarText))
+											  this.fgBarText@HL, this.fgBarText))
 					dc.DrawText(containerInfo.dirDispName, 20, yBar)
 				}
 				str = format('%d images'$, containerInfo.imageInfos.len())
 				[wdStr, htStr] = dc.GetTextExtent(str)
 				dc.SetFont(this.fontBold)
 				dc.SetTextForeground(cond(highlightFlag,
-										  this.fgBarText@Sel, this.fgBarText))
+										  this.fgBarText@HL, this.fgBarText))
 				dc.DrawText(str, wdClient - wdStr, yBar)
 			}
 		}
@@ -470,7 +483,7 @@ ImageViewer = class(wx.Panel) {
 	CalcSlotPosition(containerInfo:ContainerInfo, idxImage:number) = {
 		xSlot = wdMgnLeft + (idxImage % this.nCols) * (sizeThumbnail + wdSkip)
 		ySlot = containerInfo.y + htBar + htMgnTop + \
-			int(idxImage / this.nCols) * (sizeThumbnail + htLabel + htSkip)
+			int(idxImage / this.nCols) * (sizeThumbnail + htLabelMgn + htLabel + htSkip)
 		[xSlot, ySlot]
 	}
 	CopyImageFiles(label:wx.StaticText) = {
@@ -478,7 +491,7 @@ ImageViewer = class(wx.Panel) {
 		this.quitFlag = false
 		nImages = this.containerInfosForSource:*imageInfos:*len().sum()
 		idxImageWhole = 0
-		htSlot = sizeThumbnail + htLabel
+		htSlot = sizeThumbnail + htLabelMgn + htLabel
 		yScrollPos = this.GetScrollPos(wx.VERTICAL)
 		containerInfo = this.containerInfosForSource.first()
 		if (containerInfo.y < yScrollPos) {
@@ -637,38 +650,38 @@ ImageViewer = class(wx.Panel) {
 	OnKeyDown(event:wx.KeyEvent) = {
 		keyCode = event.GetKeyCode()
 		if (keyCode == wx.WXK_UP) {
-			if (this.imageInfoSel) {
-				imageInfos = this.containerInfoSel.imageInfos
-				idxImage = imageInfos.find(this.imageInfoSel):index
+			if (this.imageInfoHL) {
+				imageInfos = this.containerInfoHL.imageInfos
+				idxImage = imageInfos.find(this.imageInfoHL):index
 				idxImage -= this.nCols
 				if (idxImage >= 0) {
-					this.imageInfoSel = imageInfos[idxImage]
+					this.imageInfoHL = imageInfos[idxImage]
 				} else {
-					this.imageInfoSel = nil
+					this.imageInfoHL = nil
 				}
 			} else {
 				selectImageFlag = false
-				idxContainer = this.containerInfosForSource.find(this.containerInfoSel):index
+				idxContainer = this.containerInfosForSource.find(this.containerInfoHL):index
 				if (idxContainer) {
 					if (idxContainer > 0) {
-						this.containerInfoSel = this.containerInfosForSource[idxContainer - 1]
+						this.containerInfoHL = this.containerInfosForSource[idxContainer - 1]
 						selectImageFlag = true
 					}
 				} else {
-					idxContainer = this.containerInfosForStorage.find(this.containerInfoSel):index
+					idxContainer = this.containerInfosForStorage.find(this.containerInfoHL):index
 					if (idxContainer > 0) {
-						this.containerInfoSel = this.containerInfosForStorage[idxContainer - 1]
+						this.containerInfoHL = this.containerInfosForStorage[idxContainer - 1]
 						selectImageFlag = true
 					} elsif (!this.containerInfosForSource.isempty()) {
-						this.containerInfoSel = this.containerInfosForSource.last()
+						this.containerInfoHL = this.containerInfosForSource.last()
 						selectImageFlag = true
 					}
 				}
 				if (selectImageFlag) {
-					imageInfos = this.containerInfoSel.imageInfos
-					if (!imageInfos.isempty() && this.containerInfoSel.expandFlag) {
+					imageInfos = this.containerInfoHL.imageInfos
+					if (!imageInfos.isempty() && this.containerInfoHL.expandFlag) {
 						idxImage = int((imageInfos.len() - 1) / this.nCols) * this.nCols
-						this.imageInfoSel = imageInfos[idxImage]
+						this.imageInfoHL = imageInfos[idxImage]
 					}
 				}
 			}
@@ -676,77 +689,77 @@ ImageViewer = class(wx.Panel) {
 			this.UpdateContent()
 		} elsif (keyCode == wx.WXK_DOWN) {
 			forwardContainerFlag = false
-			imageInfos = this.containerInfoSel.imageInfos
-			if (this.imageInfoSel) {
-				idxImage = imageInfos.find(this.imageInfoSel):index
+			imageInfos = this.containerInfoHL.imageInfos
+			if (this.imageInfoHL) {
+				idxImage = imageInfos.find(this.imageInfoHL):index
 				idxImage += this.nCols
 				if (idxImage < imageInfos.len()) {
-					this.imageInfoSel = imageInfos[idxImage]
+					this.imageInfoHL = imageInfos[idxImage]
 				} else {
 					forwardContainerFlag = true
-					this.imageInfoSel = nil
+					this.imageInfoHL = nil
 				}
-			} elsif (imageInfos.isempty() || !this.containerInfoSel.expandFlag) {
+			} elsif (imageInfos.isempty() || !this.containerInfoHL.expandFlag) {
 				forwardContainerFlag = true
 			} else {
-				this.imageInfoSel = imageInfos.first()
+				this.imageInfoHL = imageInfos.first()
 			}
 			if (forwardContainerFlag) {
-				idxContainer = this.containerInfosForSource.find(this.containerInfoSel):index
+				idxContainer = this.containerInfosForSource.find(this.containerInfoHL):index
 				if (idxContainer) {
 					if (idxContainer + 1 < this.containerInfosForSource.len()) {
-						this.containerInfoSel = this.containerInfosForSource[idxContainer + 1]
+						this.containerInfoHL = this.containerInfosForSource[idxContainer + 1]
 					} elsif (!this.containerInfosForStorage.isempty()) {
-						this.containerInfoSel = this.containerInfosForStorage.first()
+						this.containerInfoHL = this.containerInfosForStorage.first()
 					}
 				} else {
-					idxContainer = this.containerInfosForStorage.find(this.containerInfoSel):index
+					idxContainer = this.containerInfosForStorage.find(this.containerInfoHL):index
 					if (idxContainer + 1 < this.containerInfosForStorage.len()) {
-						this.containerInfoSel = this.containerInfosForStorage[idxContainer + 1]
+						this.containerInfoHL = this.containerInfosForStorage[idxContainer + 1]
 					}
 				}
 			}
 			this.EnsureSelectionVisible()
 			this.UpdateContent()
 		} elsif (keyCode == wx.WXK_LEFT) {
-			imageInfos = this.containerInfoSel.imageInfos
-			if (this.imageInfoSel) {
-				idxImage = imageInfos.find(this.imageInfoSel):index
+			imageInfos = this.containerInfoHL.imageInfos
+			if (this.imageInfoHL) {
+				idxImage = imageInfos.find(this.imageInfoHL):index
 				if (idxImage > 0) {
-					this.imageInfoSel = imageInfos[idxImage - 1]
+					this.imageInfoHL = imageInfos[idxImage - 1]
 				}
 			} else {
-				this.containerInfoSel.expandFlag = false
-				this.ChangeExpandStatus(this.containerInfoSel)
+				this.containerInfoHL.expandFlag = false
+				this.ChangeExpandStatus(this.containerInfoHL)
 			}
 			this.EnsureSelectionVisible()
 			this.UpdateContent()
 		} elsif (keyCode == wx.WXK_RIGHT) {
-			imageInfos = this.containerInfoSel.imageInfos
-			if (this.imageInfoSel) {
-				idxImage = imageInfos.find(this.imageInfoSel):index
+			imageInfos = this.containerInfoHL.imageInfos
+			if (this.imageInfoHL) {
+				idxImage = imageInfos.find(this.imageInfoHL):index
 				if (idxImage + 1 < imageInfos.len()) {
-					this.imageInfoSel = imageInfos[idxImage + 1]
+					this.imageInfoHL = imageInfos[idxImage + 1]
 				}
 			} else {
-				this.containerInfoSel.expandFlag = true
-				this.ChangeExpandStatus(this.containerInfoSel)
+				this.containerInfoHL.expandFlag = true
+				this.ChangeExpandStatus(this.containerInfoHL)
 			}
 			this.EnsureSelectionVisible()
 			this.UpdateContent()
 		} elsif (keyCode == wx.WXK_HOME) {
-			imageInfos = this.containerInfoSel.imageInfos
-			if (this.imageInfoSel) {
-				this.imageInfoSel = imageInfos[0]
+			imageInfos = this.containerInfoHL.imageInfos
+			if (this.imageInfoHL) {
+				this.imageInfoHL = imageInfos[0]
 			} else {
 				// nothing to do
 			}
 			this.EnsureSelectionVisible()
 			this.UpdateContent()
 		} elsif (keyCode == wx.WXK_END) {
-			imageInfos = this.containerInfoSel.imageInfos
-			if (this.imageInfoSel) {
-				this.imageInfoSel = imageInfos[-1]
+			imageInfos = this.containerInfoHL.imageInfos
+			if (this.imageInfoHL) {
+				this.imageInfoHL = imageInfos[-1]
 			} else {
 				// nothing to do
 			}
