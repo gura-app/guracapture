@@ -124,7 +124,8 @@ Splitter = struct(rc:wx.Rect, idxImage:number, orientation:symbol)
 //-----------------------------------------------------------------------------
 // ImageInfo
 //-----------------------------------------------------------------------------
-ImageInfo = struct(pathName:string, pathNameSource:string:nil, image:wx.Bitmap:nil, stat:symbol):map {
+ImageInfo = struct(pathName:string, pathNameSource:string:nil, image:wx.Bitmap:nil,
+				   stat:symbol, selectedFlag:boolean):map {
 	UpdateImage(sizeThumbnail:number) = {
 		try {
 			this.image:wx.Bitmap = image(`rgb).read@jpeg(this.pathName, sizeThumbnail):fast:rough
@@ -210,31 +211,31 @@ ImageViewer = class(wx.Panel) {
 		this.bmpScreen = nil
 		this.penSlotBlank = wx.NullPen
 		this.brushSlotBlank = wx.Brush(wx.Colour(200, 200, 200), wx.BRUSHSTYLE_BDIAGONAL_HATCH)
-		this.brushSlotBlank@HL = wx.Brush(wx.Colour(192, 192, 192), wx.BRUSHSTYLE_SOLID)
+		this.brushSlotBlank@Focused = wx.Brush(wx.Colour(192, 192, 192), wx.BRUSHSTYLE_SOLID)
 		this.brushBg = wx.Brush(wx.WHITE, wx.BRUSHSTYLE_SOLID)
 		this.penSlot = wx.NullPen
 		this.brushSlot = wx.Brush(wx.Colour(200, 200, 200), wx.BRUSHSTYLE_SOLID)
-		this.brushSlot@HL = wx.Brush(wx.Colour(128, 128, 128), wx.BRUSHSTYLE_SOLID)
+		this.brushSlot@Focused = wx.Brush(wx.Colour(128, 128, 128), wx.BRUSHSTYLE_SOLID)
 		this.penSlotProgress = wx.NullPen
 		this.brushSlotProgress = wx.Brush(wx.Colour(240, 240, 240), wx.BRUSHSTYLE_SOLID)
 		this.fgBarText = wx.BLACK
-		this.fgBarText@HL = wx.WHITE
+		this.fgBarText@Focused = wx.WHITE
 		this.fgBarLinkText = wx.Colour(0, 0, 255)
-		this.fgBarLinkText@HL = wx.WHITE
+		this.fgBarLinkText@Focused = wx.WHITE
 		this.fgLabelText = wx.BLACK
-		this.fgLabelText@HL = wx.WHITE
+		this.fgLabelText@Focused = wx.WHITE
 		this.brushBarSource = wx.Brush(wx.Colour(248, 234, 195), wx.BRUSHSTYLE_SOLID)
 		this.brushBarStorage = wx.Brush(wx.Colour(255, 255, 255), wx.BRUSHSTYLE_SOLID)
-		this.brushBarSource@HL = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
-		this.brushBarStorage@HL = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
+		this.brushBarSource@Focused = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
+		this.brushBarStorage@Focused = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
 		this.brushLabel = wx.NullBrush
-		this.brushLabel@HL = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
+		this.brushLabel@Focused = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
 		this.containerInfosForSource = []
 		this.containerInfosForStorage = []
 		this.timer = wx.Timer(this, TimerId)
 		this.imageInfoQue = []
-		this.containerInfoHL = nil
-		this.imageInfoHL = nil
+		this.containerInfoFocused = nil
+		this.imageInfoFocused = nil
 		this.font = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL,
 							wx.FONTWEIGHT_NORMAL)
 		this.fontBold = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL,
@@ -256,12 +257,12 @@ ImageViewer = class(wx.Panel) {
 		this.Bind(wx.EVT_IDLE) {|event| this.OnIdle(event)}
 	}
 	InitSelection() = {
-		this.containerInfoHL = nil
-		this.imageInfoHL = nil
+		this.containerInfoFocused = nil
+		this.imageInfoFocused = nil
 		if (!this.containerInfosForSource.isempty()) {
-			this.containerInfoHL = this.containerInfosForSource.first()
+			this.containerInfoFocused = this.containerInfosForSource.first()
 		} elsif (!this.containerInfosForStorage.isempty()) {
-			this.containerInfoHL = this.containerInfosForStorage.first()
+			this.containerInfoFocused = this.containerInfosForStorage.first()
 		}
 	}
 	UpdateContainerInfosForSource() = {
@@ -281,7 +282,7 @@ ImageViewer = class(wx.Panel) {
 				this.containerInfosForSource.add(containerInfo)
 			}
 			containerInfo.imageInfos.add(ImageInfo(
-					path.join(dirName, fileName), pathNameSource, nil, `source))
+					path.join(dirName, fileName), pathNameSource, nil, `source, false))
 		}
 		!this.containerInfosForSource.isempty()
 	}
@@ -296,7 +297,7 @@ ImageViewer = class(wx.Panel) {
 			dirDispName = dirName.mid(dirNameStorage.len() + 1)
 			!dirDispName.match(matchPatternFolder) && continue
 			ContainerInfo(
-					`storage, dirName, dirDispName, ImageInfo(pathNames, nil, nil, `storage),
+					`storage, dirName, dirDispName, ImageInfo(pathNames, nil, nil, `storage, false),
 					0, 0, wx.Rect(0, 0, 20, 20), [], false)
 		}
 		!this.containerInfosForStorage.isempty()
@@ -304,13 +305,13 @@ ImageViewer = class(wx.Panel) {
 	EnsureSelectionVisible() = {
 		[wdClient, htClient] = this.GetClientSizeWH()
 		yScrollPos = this.GetScrollPos(wx.VERTICAL)
-		if (this.imageInfoHL) {
-			idxImage = this.containerInfoHL.imageInfos.find(this.imageInfoHL):index
-			[xSlot, ySlot] = this.CalcSlotPosition(this.containerInfoHL, idxImage)
+		if (this.imageInfoFocused) {
+			idxImage = this.containerInfoFocused.imageInfos.find(this.imageInfoFocused):index
+			[xSlot, ySlot] = this.CalcSlotPosition(this.containerInfoFocused, idxImage)
 			yTop = ySlot
 			yBottom = yTop + sizeThumbnail + htLabelMgn + htLabel
 		} else {
-			yTop = this.containerInfoHL.y
+			yTop = this.containerInfoFocused.y
 			yBottom = yTop + htBar
 		}
 		if (yTop < yScrollPos) {
@@ -359,7 +360,7 @@ ImageViewer = class(wx.Panel) {
 			htDisp = containerInfo.y + containerInfo.height - yScrollPos
 			if (containerInfo.expandFlag) {
 				containerInfo.imageInfos.each {|imageInfo, idxImage|
-					highlightFlag = imageInfo.is(this.imageInfoHL)
+					focusedFlag = imageInfo.is(this.imageInfoFocused)
 					[xSlot, ySlot] = this.CalcSlotPosition(containerInfo, idxImage)
 					(ySlot + sizeThumbnail <= yScrollPos) && continue
 					(ySlot >= yScrollPos + htClient) && break
@@ -375,20 +376,20 @@ ImageViewer = class(wx.Panel) {
 					}
 					if (imageInfo.stat == `source) {
 						dc.SetPen(this.penSlotBlank)
-						dc.SetBrush(cond(highlightFlag,
-										 this.brushSlotBlank@HL, this.brushSlotBlank))
+						dc.SetBrush(cond(focusedFlag,
+										 this.brushSlotBlank@Focused, this.brushSlotBlank))
 						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
 						str = path.filename(imageInfo.pathNameSource)
+						dc.SetFont(this.font)
 						[wdStr, htStr] = dc.GetTextExtent(str)
 						xStr = xSlot + (sizeThumbnail - wdStr) / 2
 						yStr = ySlot + (sizeThumbnail - htStr) / 2
-						dc.SetFont(this.font)
 						dc.SetTextForeground(wx.Colour(140, 140, 140))
 						dc.DrawText(str, xStr, yStr)
 					} elsif (imageInfo.stat == `storage) {
 						dc.SetPen(this.penSlot)
-						dc.SetBrush(cond(highlightFlag,
-										 this.brushSlot@HL, this.brushSlot))
+						dc.SetBrush(cond(focusedFlag,
+										 this.brushSlot@Focused, this.brushSlot))
 						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
 						if (imageInfo.image) {
 							xImage = xSlot + (sizeThumbnail - imageInfo.image.width) / 2
@@ -406,9 +407,9 @@ ImageViewer = class(wx.Panel) {
 					yStr = ySlot + sizeThumbnail + htLabelMgn + (htLabel - htStr) / 2
 					dc.SetPen(wx.NullPen)
 					dc.SetFont(this.font)
-					if (highlightFlag) {
-						dc.SetBrush(this.brushLabel@HL)
-						dc.SetTextForeground(this.fgLabelText@HL)
+					if (focusedFlag) {
+						dc.SetBrush(this.brushLabel@Focused)
+						dc.SetTextForeground(this.fgLabelText@Focused)
 					} else {
 						dc.SetBrush(this.brushLabel)
 						dc.SetTextForeground(this.fgLabelText)
@@ -418,13 +419,13 @@ ImageViewer = class(wx.Panel) {
 				}
 			}
 			if (htDisp > htBar) {
-				highlightFlag = containerInfo.is(this.containerInfoHL) && !this.imageInfoHL
+				focusedFlag = containerInfo.is(this.containerInfoFocused) && !this.imageInfoFocused
 				yBar = max(yScrollPos, containerInfo.y)
 				containerInfo.rcExpand.y = yBar
 				dc.SetPen(wx.NullPen)
-				if (highlightFlag) {
+				if (focusedFlag) {
 					dc.SetBrush(cond(containerInfo.type == `source,
-									 this.brushBarSource@HL, this.brushBarStorage@HL))
+									 this.brushBarSource@Focused, this.brushBarStorage@Focused))
 				} else {
 					dc.SetBrush(cond(containerInfo.type == `source,
 									 this.brushBarSource, this.brushBarStorage))
@@ -442,25 +443,25 @@ ImageViewer = class(wx.Panel) {
 						strRight = 'Click to Fill Name'$
 					}
 					dc.SetFont(this.fontBold)
-					dc.SetTextForeground(cond(highlightFlag,
-											  this.fgBarText@HL, this.fgBarText))
+					dc.SetTextForeground(cond(focusedFlag,
+											  this.fgBarText@Focused, this.fgBarText))
 					dc.DrawText(strLeft, 20, yBar)
 					[wdStr, htStr] = dc.GetTextExtent(strLeft)
 					dc.SetFont(this.fontBoldUL)
-					dc.SetTextForeground(cond(highlightFlag,
-											  this.fgBarLinkText@HL, this.fgBarLinkText))
+					dc.SetTextForeground(cond(focusedFlag,
+											  this.fgBarLinkText@Focused, this.fgBarLinkText))
 					dc.DrawText(strRight, 20 + wdStr, yBar)
 				} else {
 					dc.SetFont(this.fontBold)
-					dc.SetTextForeground(cond(highlightFlag,
-											  this.fgBarText@HL, this.fgBarText))
+					dc.SetTextForeground(cond(focusedFlag,
+											  this.fgBarText@Focused, this.fgBarText))
 					dc.DrawText(containerInfo.dirDispName, 20, yBar)
 				}
 				str = format('%d images'$, containerInfo.imageInfos.len())
 				[wdStr, htStr] = dc.GetTextExtent(str)
 				dc.SetFont(this.fontBold)
-				dc.SetTextForeground(cond(highlightFlag,
-										  this.fgBarText@HL, this.fgBarText))
+				dc.SetTextForeground(cond(focusedFlag,
+										  this.fgBarText@Focused, this.fgBarText))
 				dc.DrawText(str, wdClient - wdStr, yBar)
 			}
 		}
@@ -638,38 +639,38 @@ ImageViewer = class(wx.Panel) {
 	OnKeyDown(event:wx.KeyEvent) = {
 		keyCode = event.GetKeyCode()
 		if (keyCode == wx.WXK_UP) {
-			if (this.imageInfoHL) {
-				imageInfos = this.containerInfoHL.imageInfos
-				idxImage = imageInfos.find(this.imageInfoHL):index
+			if (this.imageInfoFocused) {
+				imageInfos = this.containerInfoFocused.imageInfos
+				idxImage = imageInfos.find(this.imageInfoFocused):index
 				idxImage -= this.nCols
 				if (idxImage >= 0) {
-					this.imageInfoHL = imageInfos[idxImage]
+					this.imageInfoFocused = imageInfos[idxImage]
 				} else {
-					this.imageInfoHL = nil
+					this.imageInfoFocused = nil
 				}
 			} else {
 				selectImageFlag = false
-				idxContainer = this.containerInfosForSource.find(this.containerInfoHL):index
+				idxContainer = this.containerInfosForSource.find(this.containerInfoFocused):index
 				if (idxContainer) {
 					if (idxContainer > 0) {
-						this.containerInfoHL = this.containerInfosForSource[idxContainer - 1]
+						this.containerInfoFocused = this.containerInfosForSource[idxContainer - 1]
 						selectImageFlag = true
 					}
 				} else {
-					idxContainer = this.containerInfosForStorage.find(this.containerInfoHL):index
+					idxContainer = this.containerInfosForStorage.find(this.containerInfoFocused):index
 					if (idxContainer > 0) {
-						this.containerInfoHL = this.containerInfosForStorage[idxContainer - 1]
+						this.containerInfoFocused = this.containerInfosForStorage[idxContainer - 1]
 						selectImageFlag = true
 					} elsif (!this.containerInfosForSource.isempty()) {
-						this.containerInfoHL = this.containerInfosForSource.last()
+						this.containerInfoFocused = this.containerInfosForSource.last()
 						selectImageFlag = true
 					}
 				}
 				if (selectImageFlag) {
-					imageInfos = this.containerInfoHL.imageInfos
-					if (!imageInfos.isempty() && this.containerInfoHL.expandFlag) {
+					imageInfos = this.containerInfoFocused.imageInfos
+					if (!imageInfos.isempty() && this.containerInfoFocused.expandFlag) {
 						idxImage = int((imageInfos.len() - 1) / this.nCols) * this.nCols
-						this.imageInfoHL = imageInfos[idxImage]
+						this.imageInfoFocused = imageInfos[idxImage]
 					}
 				}
 			}
@@ -677,77 +678,77 @@ ImageViewer = class(wx.Panel) {
 			this.UpdateContent()
 		} elsif (keyCode == wx.WXK_DOWN) {
 			forwardContainerFlag = false
-			imageInfos = this.containerInfoHL.imageInfos
-			if (this.imageInfoHL) {
-				idxImage = imageInfos.find(this.imageInfoHL):index
+			imageInfos = this.containerInfoFocused.imageInfos
+			if (this.imageInfoFocused) {
+				idxImage = imageInfos.find(this.imageInfoFocused):index
 				idxImage += this.nCols
 				if (idxImage < imageInfos.len()) {
-					this.imageInfoHL = imageInfos[idxImage]
+					this.imageInfoFocused = imageInfos[idxImage]
 				} else {
 					forwardContainerFlag = true
-					this.imageInfoHL = nil
+					this.imageInfoFocused = nil
 				}
-			} elsif (imageInfos.isempty() || !this.containerInfoHL.expandFlag) {
+			} elsif (imageInfos.isempty() || !this.containerInfoFocused.expandFlag) {
 				forwardContainerFlag = true
 			} else {
-				this.imageInfoHL = imageInfos.first()
+				this.imageInfoFocused = imageInfos.first()
 			}
 			if (forwardContainerFlag) {
-				idxContainer = this.containerInfosForSource.find(this.containerInfoHL):index
+				idxContainer = this.containerInfosForSource.find(this.containerInfoFocused):index
 				if (idxContainer) {
 					if (idxContainer + 1 < this.containerInfosForSource.len()) {
-						this.containerInfoHL = this.containerInfosForSource[idxContainer + 1]
+						this.containerInfoFocused = this.containerInfosForSource[idxContainer + 1]
 					} elsif (!this.containerInfosForStorage.isempty()) {
-						this.containerInfoHL = this.containerInfosForStorage.first()
+						this.containerInfoFocused = this.containerInfosForStorage.first()
 					}
 				} else {
-					idxContainer = this.containerInfosForStorage.find(this.containerInfoHL):index
+					idxContainer = this.containerInfosForStorage.find(this.containerInfoFocused):index
 					if (idxContainer + 1 < this.containerInfosForStorage.len()) {
-						this.containerInfoHL = this.containerInfosForStorage[idxContainer + 1]
+						this.containerInfoFocused = this.containerInfosForStorage[idxContainer + 1]
 					}
 				}
 			}
 			this.EnsureSelectionVisible()
 			this.UpdateContent()
 		} elsif (keyCode == wx.WXK_LEFT) {
-			imageInfos = this.containerInfoHL.imageInfos
-			if (this.imageInfoHL) {
-				idxImage = imageInfos.find(this.imageInfoHL):index
+			imageInfos = this.containerInfoFocused.imageInfos
+			if (this.imageInfoFocused) {
+				idxImage = imageInfos.find(this.imageInfoFocused):index
 				if (idxImage > 0) {
-					this.imageInfoHL = imageInfos[idxImage - 1]
+					this.imageInfoFocused = imageInfos[idxImage - 1]
 				}
 			} else {
-				this.containerInfoHL.expandFlag = false
-				this.ChangeExpandStatus(this.containerInfoHL)
+				this.containerInfoFocused.expandFlag = false
+				this.ChangeExpandStatus(this.containerInfoFocused)
 			}
 			this.EnsureSelectionVisible()
 			this.UpdateContent()
 		} elsif (keyCode == wx.WXK_RIGHT) {
-			imageInfos = this.containerInfoHL.imageInfos
-			if (this.imageInfoHL) {
-				idxImage = imageInfos.find(this.imageInfoHL):index
+			imageInfos = this.containerInfoFocused.imageInfos
+			if (this.imageInfoFocused) {
+				idxImage = imageInfos.find(this.imageInfoFocused):index
 				if (idxImage + 1 < imageInfos.len()) {
-					this.imageInfoHL = imageInfos[idxImage + 1]
+					this.imageInfoFocused = imageInfos[idxImage + 1]
 				}
 			} else {
-				this.containerInfoHL.expandFlag = true
-				this.ChangeExpandStatus(this.containerInfoHL)
+				this.containerInfoFocused.expandFlag = true
+				this.ChangeExpandStatus(this.containerInfoFocused)
 			}
 			this.EnsureSelectionVisible()
 			this.UpdateContent()
 		} elsif (keyCode == wx.WXK_HOME) {
-			imageInfos = this.containerInfoHL.imageInfos
-			if (this.imageInfoHL) {
-				this.imageInfoHL = imageInfos[0]
+			imageInfos = this.containerInfoFocused.imageInfos
+			if (this.imageInfoFocused) {
+				this.imageInfoFocused = imageInfos[0]
 			} else {
 				// nothing to do
 			}
 			this.EnsureSelectionVisible()
 			this.UpdateContent()
 		} elsif (keyCode == wx.WXK_END) {
-			imageInfos = this.containerInfoHL.imageInfos
-			if (this.imageInfoHL) {
-				this.imageInfoHL = imageInfos[-1]
+			imageInfos = this.containerInfoFocused.imageInfos
+			if (this.imageInfoFocused) {
+				this.imageInfoFocused = imageInfos[-1]
 			} else {
 				// nothing to do
 			}
