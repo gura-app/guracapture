@@ -212,10 +212,12 @@ ImageViewer = class(wx.Panel) {
 		this.penSlotBlank = wx.NullPen
 		this.brushSlotBlank = wx.Brush(wx.Colour(200, 200, 200), wx.BRUSHSTYLE_BDIAGONAL_HATCH)
 		this.brushSlotBlank@Focused = wx.Brush(wx.Colour(192, 192, 192), wx.BRUSHSTYLE_SOLID)
+		this.brushSlotBlank@Selected = wx.Brush(wx.Colour(192, 192, 192), wx.BRUSHSTYLE_SOLID)
 		this.brushBg = wx.Brush(wx.WHITE, wx.BRUSHSTYLE_SOLID)
 		this.penSlot = wx.NullPen
 		this.brushSlot = wx.Brush(wx.Colour(200, 200, 200), wx.BRUSHSTYLE_SOLID)
 		this.brushSlot@Focused = wx.Brush(wx.Colour(128, 128, 128), wx.BRUSHSTYLE_SOLID)
+		this.brushSlot@Selected = wx.Brush(wx.Colour(128, 128, 128), wx.BRUSHSTYLE_SOLID)
 		this.penSlotProgress = wx.NullPen
 		this.brushSlotProgress = wx.Brush(wx.Colour(240, 240, 240), wx.BRUSHSTYLE_SOLID)
 		this.fgBarText = wx.BLACK
@@ -224,12 +226,14 @@ ImageViewer = class(wx.Panel) {
 		this.fgBarLinkText@Focused = wx.WHITE
 		this.fgLabelText = wx.BLACK
 		this.fgLabelText@Focused = wx.WHITE
+		this.fgLabelText@Selected = wx.WHITE
 		this.brushBarSource = wx.Brush(wx.Colour(248, 234, 195), wx.BRUSHSTYLE_SOLID)
 		this.brushBarStorage = wx.Brush(wx.Colour(255, 255, 255), wx.BRUSHSTYLE_SOLID)
 		this.brushBarSource@Focused = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
 		this.brushBarStorage@Focused = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
 		this.brushLabel = wx.NullBrush
 		this.brushLabel@Focused = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
+		this.brushLabel@Selected = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
 		this.containerInfosForSource = []
 		this.containerInfosForStorage = []
 		this.timer = wx.Timer(this, TimerId)
@@ -376,8 +380,13 @@ ImageViewer = class(wx.Panel) {
 					}
 					if (imageInfo.stat == `source) {
 						dc.SetPen(this.penSlotBlank)
-						dc.SetBrush(cond(focusedFlag,
-										 this.brushSlotBlank@Focused, this.brushSlotBlank))
+						if (focusedFlag) {
+							dc.SetBrush(this.brushSlotBlank@Focused)
+						} elsif (imageInfo.selectedFlag) {
+							dc.SetBrush(this.brushSlotBlank@Selected)
+						} else {
+							dc.SetBrush(this.brushSlotBlank)
+						}
 						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
 						str = path.filename(imageInfo.pathNameSource)
 						dc.SetFont(this.font)
@@ -388,8 +397,13 @@ ImageViewer = class(wx.Panel) {
 						dc.DrawText(str, xStr, yStr)
 					} elsif (imageInfo.stat == `storage) {
 						dc.SetPen(this.penSlot)
-						dc.SetBrush(cond(focusedFlag,
-										 this.brushSlot@Focused, this.brushSlot))
+						if (focusedFlag) {
+							dc.SetBrush(this.brushSlot@Focused)
+						} elsif (imageInfo.selectedFlag) {
+							dc.SetBrush(this.brushSlot@Selected)
+						} else {
+							dc.SetBrush(this.brushSlot)
+						}
 						dc.DrawRectangle(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
 						if (imageInfo.image) {
 							xImage = xSlot + (sizeThumbnail - imageInfo.image.width) / 2
@@ -410,6 +424,9 @@ ImageViewer = class(wx.Panel) {
 					if (focusedFlag) {
 						dc.SetBrush(this.brushLabel@Focused)
 						dc.SetTextForeground(this.fgLabelText@Focused)
+					} elsif (imageInfo.selectedFlag) {
+						dc.SetBrush(this.brushLabel@Selected)
+						dc.SetTextForeground(this.fgLabelText@Selected)
 					} else {
 						dc.SetBrush(this.brushLabel)
 						dc.SetTextForeground(this.fgLabelText)
