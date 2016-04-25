@@ -18,15 +18,7 @@ import(global, g)
 //-----------------------------------------------------------------------------
 PatternEditorPanel = class(wx.Panel) {
 	TimerId = 1
-	YYYY = '2015'
-	YY = '15'
-	MM = '03'
-	DD = '21'
-	hh = '13'
-	mm = '24'
-	ss = '47'
-	QQ = 'AA'
-	N = '1'
+	dtSample = datetime(2015, 3, 21, 13, 24, 47)
 	__init__(parent:wx.Windowm) = {|parent|
 		outerBox = wx.BoxSizer(wx.VERTICAL)
 		this.SetSizer(outerBox)
@@ -55,22 +47,9 @@ PatternEditorPanel = class(wx.Panel) {
 				this.textSubstPatternFile = ctrl
 			}
 		}
-		wx.StaticBox(this, wx.ID_ANY, 'Match Pattern'$) {|stb|
-			vboxIn = wx.StaticBoxSizer(stb, wx.VERTICAL)
-			vbox.Add(vboxIn, wx.SizerFlags().Expand())
-			gbox = wx.FlexGridSizer(nil, 2, 4, 8)
-			vboxIn.Add(gbox, wx.SizerFlags().Expand())
-			gbox.AddGrowableCol(1, 1)
-			wx.StaticText(this, wx.ID_ANY, 'Folder Name'$) {|ctrl|
-				gbox.Add(ctrl, wx.SizerFlags().Expand())
-			}
-			wx.TextCtrl(this, wx.ID_ANY, g.matchPatternFolder) {|ctrl|
-				gbox.Add(ctrl, wx.SizerFlags(1).Expand())
-				ctrl.Bind(wx.EVT_TEXT) {|event| this.OnText(event)}
-				this.textMatchPatternFolder = ctrl
-			}
-		}
-		str = format('Sample: '$ + '%s-%s-%s %s:%s:%s', YYYY, MM, DD, hh, mm, ss)
+		str = format('Sample: '$ + '%04d-%02d-%02d %02d:%02d:%02d',
+					 dtSample.year, dtSample.month, dtSample.day,
+					 dtSample.hour, dtSample.min, dtSample.sec)
 		wx.StaticBox(this, wx.ID_ANY, str) {|stb|
 			vboxIn = wx.StaticBoxSizer(stb, wx.VERTICAL)
 			vbox.Add(vboxIn, wx.SizerFlags().Expand().Border(wx.TOP, 8))
@@ -101,26 +80,21 @@ PatternEditorPanel = class(wx.Panel) {
 		}
 		this.timer = wx.Timer(this, TimerId)
 		this.Bind(wx.EVT_TIMER, this.TimerId) {|event| this.OnTimer(event)}
-		this.UpdateSample(this.textSubstPatternFolder, this.textResultFolder)
-		this.UpdateSample(this.textSubstPatternFile, this.textResultFile)
+		this.UpdateSample()
 	}
 	OnText(event:wx.CommandEvent) = {
 		this.timer.Start(500, true)
 	}
 	OnTimer(event:wx.TimerEvent) = {
-		this.UpdateSample(this.textSubstPatternFolder, this.textResultFolder)
-		this.UpdateSample(this.textSubstPatternFile, this.textResultFile)
+		this.UpdateSample()
 	}
-	UpdateSample(textSubstPattern:wx.TextCtrl, textResult:wx.TextCtrl) = {
-		strTmpl = textSubstPattern.GetValue()
-		try {
-			str = strTmpl.embed()
-			textResult.SetForegroundColour(wx.BLACK)
-			textResult.SetValue(str)
-		} catch {|e|
-			textResult.SetForegroundColour(wx.RED)
-			textResult.SetValue(e.text)
-		}
+	UpdateSample() = {
+		substPatternFolder = this.textSubstPatternFolder.GetValue()
+		substPatternFile = this.textSubstPatternFile.GetValue()
+		[dirName, dirDispName, fileName] = \
+			ComposePathNameFromDatetime(substPatternFolder, substPatternFile, dtSample)
+		this.textResultFolder.SetValue(dirDispName)
+		this.textResultFile.SetValue(fileName)
 	}
 }
 
@@ -186,22 +160,33 @@ GetTimeStamp(pathName:string) = {
 	}
 }
 
-MakePathNameFromDatetime(dt:datetime) = {
+MakeMatchPatternFolder(substPatternFolder:string) = {
+	'^' + substPatternFolder.\
+		replace('{YYYY}',	r'\d{4}').\
+		replace('{YY}',		r'\d{2}').\
+		replace('{MM}',		r'\d{2}').\
+		replace('{DD}',		r'\d{2}').\
+		replace('{hh}',		r'\d{2}').\
+		replace('{mm}',		r'\d{2}').\
+		replace('{ss}',		r'\d{2}').\
+		replace('{QQ}',		r'[A-Z]{2}') + ' *'
+}
+
+ComposePathNameFromDatetime(substPatternFolder:string, substPatternFile:string, dt:datetime) = {
 	dirNameStorage = g.dirNameStorage
-	YYYY = format('%04d', dt.year)
-	YY = format('%02d', dt.year % 100)
-	MM = format('%02d', dt.month)
-	DD = format('%02d', dt.day)
-	hh = format('%02d', dt.hour)
-	mm = format('%02d', dt.min)
-	ss = format('%02d', dt.sec)
-	QQ = 'AA'
-	N = '1'
-	dirDispName = g.substPatternFolder.embed()
+	[dirDispName, fileName] = [substPatternFolder, substPatternFile]:*\
+		replace('{YYYY}',	'%04d' % dt.year):*\
+		replace('{YY}',		'%02d' % (dt.year % 100)):*\
+		replace('{MM}',		'%02d' % dt.month):*\
+		replace('{DD}',		'%02d' % dt.day):*\
+		replace('{hh}',		'%02d' % dt.hour):*\
+		replace('{mm}',		'%02d' % dt.min):*\
+		replace('{ss}',		'%02d' % dt.sec):*\
+		replace('{QQ}',		'AA')
 	[
 		path.join(dirNameStorage, dirDispName)
 		dirDispName
-		g.substPatternFile.embed()
+		fileName
 	]
 }
 
@@ -286,7 +271,8 @@ ImageViewer = class(wx.Panel) {
 		pathNamesSource.each():xlist {|pathNameSource|
 			dt = GetTimeStamp(pathNameSource)
 			!dt && continue
-			[dirName, dirDispName, fileName] = MakePathNameFromDatetime(dt)
+			[dirName, dirDispName, fileName] = ComposePathNameFromDatetime(
+					g.substPatternFolder, g.substPatternFile, dt)
 			if (idx = (this.containerInfosForSource:*dirName == dirName).find():index) {
 				containerInfo = this.containerInfosForSource[idx]
 			} else {
@@ -300,6 +286,7 @@ ImageViewer = class(wx.Panel) {
 		!this.containerInfosForSource.isempty()
 	}
 	UpdateContainerInfosForStorage() = {
+		matchPatternFolder = MakeMatchPatternFolder(g.substPatternFolder)
 		dirNameStorage = g.dirNameStorage
 		dirNames = (path.walk(dirNameStorage, 1, '*'):dir).sort(`descend):list
 		this.containerInfosForStorage = dirNames.each():xlist {|dirName|
@@ -307,7 +294,7 @@ ImageViewer = class(wx.Panel) {
 			pathNames.isempty() && continue
 			dirName = dirName.chop()
 			dirDispName = dirName.mid(dirNameStorage.len() + 1)
-			!dirDispName.match('^' + g.matchPatternFolder) && continue
+			!dirDispName.match(matchPatternFolder) && continue
 			ContainerInfo(
 					`storage, dirName, dirDispName, ImageInfo(pathNames, nil, nil, `storage),
 					0, 0, wx.Rect(0, 0, 20, 20), [], false)
@@ -364,6 +351,7 @@ ImageViewer = class(wx.Panel) {
 		dirNameStorage = g.dirNameStorage
 		yScrollPos = this.GetScrollPos(wx.VERTICAL)
 		dc.SetDeviceOrigin(0, -yScrollPos)
+		matchPatternFolder = MakeMatchPatternFolder(g.substPatternFolder)
 		containerInfos.each {|containerInfo|
 			containerInfo.rcsSplit = []
 			(containerInfo.y + containerInfo.height < yScrollPos) && continue
@@ -447,7 +435,7 @@ ImageViewer = class(wx.Panel) {
 				} else {
 					dc.DrawBitmap(g.bmpExpandPlus, 0, yBar, false)
 				}
-				if (m = containerInfo.dirDispName.match('^' + g.matchPatternFolder + r' *')) {
+				if (m = containerInfo.dirDispName.match(matchPatternFolder)) {
 					strLeft = m[0]
 					strRight = containerInfo.dirDispName.mid(strLeft.len())
 					if (strRight.match('^#')) {
@@ -798,10 +786,11 @@ MainPanel = class(wx.Panel) {
 			wx.StaticText(this, wx.ID_ANY, 'Source Folder'$) {|ctrl|
 				gbox.Add(ctrl, wx.SizerFlags().Align(wx.ALIGN_CENTRE_VERTICAL))
 			}
-			wx.StaticText(this, wx.ID_ANY, g.dirNameSource,
-						  style => wx.SUNKEN_BORDER | wx.ST_NO_AUTORESIZE) {|ctrl|
+			wx.ComboBox(this, wx.ID_ANY, style => wx.CB_READONLY) {|ctrl|
+				ctrl.Append(g.dirNameSource)
+				ctrl.Select(0)
 				gbox.Add(ctrl, wx.SizerFlags(1).Expand())
-				this.textSource = ctrl
+				this.cbSource = ctrl
 			}
 			wx.Button(this, wx.ID_ANY, 'Browse'$) {|ctrl|
 				gbox.Add(ctrl, wx.SizerFlags())
@@ -867,7 +856,9 @@ MainPanel = class(wx.Panel) {
 		if (dlg.ShowModal() == wx.ID_OK) {
 			dirName = dlg.GetPath()
 			g.dirNameSource = dirName
-			this.textSource.SetLabel(dirName)
+			this.cbSource.Clear()
+			this.cbSource.Append(dirName)
+			this.cbSource.Select(0)
 			this.btnStart.Enable(this.imageViewer.UpdateContainerInfosForSource())
 			this.imageViewer.InitSelection()
 			this.imageViewer.UpdateContent()
