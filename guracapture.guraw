@@ -654,13 +654,20 @@ ImageViewer = class(wx.Panel) {
 		}
 	}
 	OnKeyDown(event:wx.KeyEvent) = {
+		shiftFlag = event.ShiftDown()
 		keyCode = event.GetKeyCode()
 		if (keyCode == wx.WXK_UP) {
 			if (this.imageInfoFocused) {
+				if (!shiftFlag) {
+					this.containerInfoFocused.imageInfos::selectedFlag = false
+				}
 				imageInfos = this.containerInfoFocused.imageInfos
-				idxImage = imageInfos.find(this.imageInfoFocused):index
-				idxImage -= this.nCols
+				idxImagePrev = imageInfos.find(this.imageInfoFocused):index
+				idxImage = idxImagePrev - this.nCols
 				if (idxImage >= 0) {
+					if (shiftFlag) {
+						this.imageInfoFocused.selectedFlag = true
+					}
 					this.imageInfoFocused = imageInfos[idxImage]
 				} else {
 					this.imageInfoFocused = nil
@@ -697,9 +704,15 @@ ImageViewer = class(wx.Panel) {
 			forwardContainerFlag = false
 			imageInfos = this.containerInfoFocused.imageInfos
 			if (this.imageInfoFocused) {
-				idxImage = imageInfos.find(this.imageInfoFocused):index
-				idxImage += this.nCols
+				if (!shiftFlag) {
+					this.containerInfoFocused.imageInfos::selectedFlag = false
+				}
+				idxImagePrev = imageInfos.find(this.imageInfoFocused):index
+				idxImage = idxImagePrev + this.nCols
 				if (idxImage < imageInfos.len()) {
+					if (shiftFlag) {
+						imageInfos[idxImagePrev .. idxImage]::selectedFlag = true
+					}
 					this.imageInfoFocused = imageInfos[idxImage]
 				} else {
 					forwardContainerFlag = true
@@ -730,8 +743,14 @@ ImageViewer = class(wx.Panel) {
 		} elsif (keyCode == wx.WXK_LEFT) {
 			imageInfos = this.containerInfoFocused.imageInfos
 			if (this.imageInfoFocused) {
+				if (!shiftFlag) {
+					this.containerInfoFocused.imageInfos::selectedFlag = false
+				}
 				idxImage = imageInfos.find(this.imageInfoFocused):index
 				if (idxImage > 0) {
+					if (shiftFlag) {
+						this.imageInfoFocused.selectedFlag = true
+					}
 					this.imageInfoFocused = imageInfos[idxImage - 1]
 				}
 			} else {
@@ -743,8 +762,14 @@ ImageViewer = class(wx.Panel) {
 		} elsif (keyCode == wx.WXK_RIGHT) {
 			imageInfos = this.containerInfoFocused.imageInfos
 			if (this.imageInfoFocused) {
+				if (!shiftFlag) {
+					this.containerInfoFocused.imageInfos::selectedFlag = false
+				}
 				idxImage = imageInfos.find(this.imageInfoFocused):index
 				if (idxImage + 1 < imageInfos.len()) {
+					if (shiftFlag) {
+						this.imageInfoFocused.selectedFlag = true
+					}
 					this.imageInfoFocused = imageInfos[idxImage + 1]
 				}
 			} else {
