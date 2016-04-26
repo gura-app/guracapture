@@ -174,7 +174,6 @@ MakeMatchPatternFolder(substPatternFolder:string) = {
 }
 
 ComposePathNameFromDatetime(substPatternFolder:string, substPatternFile:string, dt:datetime) = {
-	dirNameStorage = g.dirNameStorage
 	[dirDispName, fileName] = [substPatternFolder, substPatternFile]:*\
 		replace('{YYYY}',	'%04d' % dt.year):*\
 		replace('{YY}',		'%02d' % (dt.year % 100)):*\
@@ -185,7 +184,7 @@ ComposePathNameFromDatetime(substPatternFolder:string, substPatternFile:string, 
 		replace('{ss}',		'%02d' % dt.sec):*\
 		replace('{QQ}',		'AA')
 	[
-		path.join(dirNameStorage, dirDispName)
+		path.join(g.dirNameStorage, dirDispName)
 		dirDispName
 		fileName
 	]
@@ -270,8 +269,7 @@ ImageViewer = class(wx.Panel) {
 		}
 	}
 	UpdateContainerInfosForSource() = {
-		dirNameSource = g.dirNameSource
-		pathNamesSource = path.walk(dirNameSource, -1, fileNamePatternAcceptable*):file
+		pathNamesSource = path.walk(g.dirNameSource, -1, fileNamePatternAcceptable*):file
 		this.containerInfosForSource = []
 		pathNamesSource.each():xlist {|pathNameSource|
 			dt = GetTimeStamp(pathNameSource)
@@ -292,13 +290,12 @@ ImageViewer = class(wx.Panel) {
 	}
 	UpdateContainerInfosForStorage() = {
 		matchPatternFolder = MakeMatchPatternFolder(g.substPatternFolder)
-		dirNameStorage = g.dirNameStorage
-		dirNames = (path.walk(dirNameStorage, 1, '*'):dir).sort(`descend):list
+		dirNames = (path.walk(g.dirNameStorage, 1, '*'):dir).sort(`descend):list
 		this.containerInfosForStorage = dirNames.each():xlist {|dirName|
 			pathNames = [path.dir(dirName, fileNamePatternAcceptable*)]
 			pathNames.isempty() && continue
 			dirName = dirName.chop()
-			dirDispName = dirName.mid(dirNameStorage.len() + 1)
+			dirDispName = dirName.mid(g.dirNameStorage.len() + 1)
 			!dirDispName.match(matchPatternFolder) && continue
 			ContainerInfo(
 					`storage, dirName, dirDispName, ImageInfo(pathNames, nil, nil, `storage, false),
@@ -353,7 +350,6 @@ ImageViewer = class(wx.Panel) {
 		dc = wx.MemoryDC(this.bmpScreen)
 		dc.SetBackground(this.brushBg)
 		dc.Clear()
-		dirNameStorage = g.dirNameStorage
 		yScrollPos = this.GetScrollPos(wx.VERTICAL)
 		dc.SetDeviceOrigin(0, -yScrollPos)
 		matchPatternFolder = MakeMatchPatternFolder(g.substPatternFolder)
@@ -830,9 +826,10 @@ MainPanel = class(wx.Panel) {
 				gbox.Add(ctrl, wx.SizerFlags().Align(wx.ALIGN_CENTRE_VERTICAL))
 			}
 			wx.ComboBox(this, wx.ID_ANY, style => wx.CB_READONLY) {|ctrl|
-				ctrl.Append(g.dirNameSource)
-				ctrl.Select(0)
 				gbox.Add(ctrl, wx.SizerFlags(1).Expand())
+				this.Bind(wx.EVT_COMBOBOX, ctrl.GetId()) {|event|
+					this.OnComboBox_Select(event)
+				}
 				this.cbSource = ctrl
 			}
 			wx.Button(this, wx.ID_ANY, 'Browse'$) {|ctrl|
@@ -890,18 +887,24 @@ MainPanel = class(wx.Panel) {
 		this.btnStart.Enable(this.imageViewer.UpdateContainerInfosForSource())
 		this.imageViewer.UpdateContainerInfosForStorage()
 		this.imageViewer.InitSelection()
+		this.dirNamesMedia = []
 		this.Bind(wx.EVT_TIMER, this.TimerId) {|event| this.OnTimer(event)}
 		this.timer.Start(1000, false)
 	}
+	OnComboBox_Select(event:wx.ComboBoxEvent) = {
+		g.dirNameSource = this.cbSource.GetString(event.GetSelection())
+		this.btnStart.Enable(this.imageViewer.UpdateContainerInfosForSource())
+		this.imageViewer.InitSelection()
+		this.imageViewer.UpdateContent()
+	}
 	OnBtn_SourceBrowse(event:wx.CommandEvent) = {
 		style = wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST
-		dlg = wx.DirDialog(this, 'Choose Source Folder'$, g.dirNameSource, style)
+		dlg = wx.DirDialog(this, 'Choose Source Folder'$, g.dirNameBrowsed, style)
 		if (dlg.ShowModal() == wx.ID_OK) {
 			dirName = dlg.GetPath()
+			g.dirNameBrowsed = dirName
 			g.dirNameSource = dirName
-			this.cbSource.Clear()
-			this.cbSource.Append(dirName)
-			this.cbSource.Select(0)
+			this.UpdateSource()
 			this.btnStart.Enable(this.imageViewer.UpdateContainerInfosForSource())
 			this.imageViewer.InitSelection()
 			this.imageViewer.UpdateContent()
@@ -937,8 +940,21 @@ MainPanel = class(wx.Panel) {
 		this.imageViewer.QuitCopy()
 	}
 	OnTimer(event:wx.TimerEvent) = {
-		//dirNames = path.glob('/Volumes/*/DCIM'):dir
-		//println(dirNames)
+		this.UpdateSource()
+	}
+	UpdateSource() = {
+		dirNamesMedia = (path.glob('/Volumes/*/DCIM'):dir).sort():list
+		(this.dirNamesMedia.len() == dirNamesMedia.len()) && \
+			(this.dirNamesMedia == dirNamesMedia).and() && return
+		this.dirNamesMedia = dirNamesMedia
+		this.cbSource.Clear()
+		this.cbSource.Append(this.dirNamesMedia)
+		if (!g.dirNameBrowsed.isempty()) {
+			this.cbSource.Append(g.dirNameBrowsed)
+		}
+		if ((idx = this.cbSource.FindString(g.dirNameSource)) < 0) { idx = 0 }
+		this.cbSource.SetSelection(idx)
+		//g.dirNameSource = this.cbSource.GetString(idx)
 	}
 }
 
