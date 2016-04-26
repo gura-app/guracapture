@@ -22,9 +22,9 @@ xMainWindow:public				= -1
 yMainWindow:public				= -1
 wdMainWindow:public				= 800
 htMainWindow:public				= 730
-dirNameBrowsed:public			= ''
-dirNameSource:public			= ''
-dirNameStorage:public			= '/Users/ypsitau/Pictures'
+dirNameBrowsed:public			= sys.localdir
+dirNameSource:public			= sys.localdir
+dirNameStorage:public			= path.join(os.getenv('HOME'), 'Pictures')
 matchPatternFolder:public		= r'\d{4}/\d{8}'
 substPatternFolder:public		= '{YYYY}/{YYYY}{MM}{DD}'
 substPatternFile:public			= '{YYYY}_{MM}{DD}_{hh}{mm}{ss}{QQ}'
@@ -93,6 +93,13 @@ LoadConfig() = {
 		substPatternFolder:extern	= cfg['substPatternFolder']
 		substPatternFile:extern		= cfg['substPatternFile']
 	} catch {}
+	dirFlag = false
+	try {
+		dirFlag = fs.stat(dirNameSource).isdir
+	} catch {}
+	if (!dirFlag) {
+		dirNameSource:extern = ''
+	}
 }
 
 //-----------------------------------------------------------------------------

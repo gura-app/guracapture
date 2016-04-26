@@ -955,6 +955,7 @@ MainPanel = class(wx.Panel) {
 		}
 		if ((idx = this.cbSource.FindString(g.dirNameSource)) < 0) { idx = 0 }
 		this.cbSource.SetSelection(idx)
+		g.dirNameSource = this.cbSource.GetString(idx)
 		this.ChangeSource()
 	}
 }
