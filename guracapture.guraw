@@ -890,12 +890,16 @@ MainPanel = class(wx.Panel) {
 		this.dirNamesMedia = []
 		this.Bind(wx.EVT_TIMER, this.TimerId) {|event| this.OnTimer(event)}
 		this.timer.Start(1000, false)
+		this.UpdateSource()
 	}
-	OnComboBox_Select(event:wx.ComboBoxEvent) = {
-		g.dirNameSource = this.cbSource.GetString(event.GetSelection())
+	ChangeSource() = {
 		this.btnStart.Enable(this.imageViewer.UpdateContainerInfosForSource())
 		this.imageViewer.InitSelection()
 		this.imageViewer.UpdateContent()
+	}
+	OnComboBox_Select(event:wx.ComboBoxEvent) = {
+		g.dirNameSource = this.cbSource.GetString(event.GetSelection())
+		this.ChangeSource()
 	}
 	OnBtn_SourceBrowse(event:wx.CommandEvent) = {
 		style = wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST
@@ -905,9 +909,6 @@ MainPanel = class(wx.Panel) {
 			g.dirNameBrowsed = dirName
 			g.dirNameSource = dirName
 			this.UpdateSource()
-			this.btnStart.Enable(this.imageViewer.UpdateContainerInfosForSource())
-			this.imageViewer.InitSelection()
-			this.imageViewer.UpdateContent()
 		}
 	}
 	OnBtn_StorageBrowse(event:wx.CommandEvent) = {
@@ -940,13 +941,13 @@ MainPanel = class(wx.Panel) {
 		this.imageViewer.QuitCopy()
 	}
 	OnTimer(event:wx.TimerEvent) = {
-		this.UpdateSource()
-	}
-	UpdateSource() = {
 		dirNamesMedia = (path.glob('/Volumes/*/DCIM'):dir).sort():list
 		(this.dirNamesMedia.len() == dirNamesMedia.len()) && \
 			(this.dirNamesMedia == dirNamesMedia).and() && return
 		this.dirNamesMedia = dirNamesMedia
+		this.UpdateSource()
+	}
+	UpdateSource() = {
 		this.cbSource.Clear()
 		this.cbSource.Append(this.dirNamesMedia)
 		if (!g.dirNameBrowsed.isempty()) {
@@ -954,7 +955,7 @@ MainPanel = class(wx.Panel) {
 		}
 		if ((idx = this.cbSource.FindString(g.dirNameSource)) < 0) { idx = 0 }
 		this.cbSource.SetSelection(idx)
-		//g.dirNameSource = this.cbSource.GetString(idx)
+		this.ChangeSource()
 	}
 }
 
