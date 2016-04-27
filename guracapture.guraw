@@ -308,6 +308,7 @@ ImageViewer = class(wx.Panel) {
 		dc.SetDeviceOrigin(0, -yScrollPos)
 		matchPatternFolder = utils.MakeMatchPatternFolder(g.substPatternFolder)
 		containerInfos.each {|containerInfo|
+			println(containerInfo.dirDispName)
 			containerInfo.rcsSplit = []
 			(containerInfo.y + containerInfo.height < yScrollPos) && continue
 			(containerInfo.y >= yScrollPos + htClient) && break

@@ -26,8 +26,8 @@ htMainWindow:public				= 730
 dirNameBrowsed:public			= sys.localdir
 dirNameSource:public			= sys.localdir
 dirNameStorage:public			= utils.MakeDirNamePictures()
-matchPatternFolder:public		= r'\d{4}/\d{8}'
-substPatternFolder:public		= '{YYYY}/{YYYY}{MM}{DD}'
+matchPatternFolder:public		= path.join(r'\d{4}', r'\d{8}')
+substPatternFolder:public		= path.join('{YYYY}', '{YYYY}{MM}{DD}')
 substPatternFile:public			= '{YYYY}_{MM}{DD}_{hh}{mm}{ss}{QQ}'
 
 icon:public						= nil
@@ -81,6 +81,7 @@ InitializeResource() = {
 // LoadConfig
 //-----------------------------------------------------------------------------
 LoadConfig() = {
+	return
 	try {
 		cfg = yaml.read(fileNameCfg)
 		xMainWindow:extern			= cfg['xMainWindow']
