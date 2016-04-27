@@ -47,12 +47,20 @@ ComposePathNameFromDatetime(substPatternFolder:string, substPatternFile:string, 
 }
 
 if (sys.platform == `mswin) {
-
+	import(mswin)
+	fso = mswin.ole('Scripting.FileSystemObject')
+	RetrieveDirNamesDCIM() = {
+		dirNamesDCIM = path.join(fso.Drives::DriveLetter + ':', 'DCIM')
+		dirNamesDCIM.filter(path.exists(dirNamesDCIM)):list
+	}
+	MakeDirNamePictures() = {
+		path.join(os.getenv('USERPROFILE'), 'Pictures')
+	}
 } elsif (sys.platform == `linux) {
 
 } elsif (sys.platform == `darwin) {
 	RetrieveDirNamesDCIM() = {
-		dirNamesDCIM = (path.glob('/Volumes/*/DCIM'):dir).sort():list
+		(path.glob('/Volumes/*/DCIM'):dir).sort():list
 	}
 	MakeDirNamePictures() = {
 		path.join(os.getenv('HOME'), 'Pictures')
