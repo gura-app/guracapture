@@ -5,6 +5,7 @@ import(wx.utils)
 import(jpeg)
 import(translate)
 import(global, g)
+import(utils)
 
 //-----------------------------------------------------------------------------
 // Control ID
@@ -92,7 +93,7 @@ PatternEditorPanel = class(wx.Panel) {
 		substPatternFolder = this.textSubstPatternFolder.GetValue()
 		substPatternFile = this.textSubstPatternFile.GetValue()
 		[dirName, dirDispName, fileName] = \
-			ComposePathNameFromDatetime(substPatternFolder, substPatternFile, dtSample)
+			utils.ComposePathNameFromDatetime(substPatternFolder, substPatternFile, dtSample)
 		this.textResultFolder.SetValue(dirDispName)
 		this.textResultFile.SetValue(fileName)
 	}
@@ -142,53 +143,6 @@ ContainerInfo = struct(type:symbol, dirName:string, dirDispName:string,
 					   imageInfos[]:ImageInfo,
 					   y:number, height:number, rcExpand:wx.Rect, splitters[]:Splitter,
 					   expandFlag:boolean)
-
-//-----------------------------------------------------------------------------
-// utilities
-//-----------------------------------------------------------------------------
-GetTimeStamp(pathName:string) = {
-	try {
-		exif = jpeg.exif(pathName)
-		m = exif.DateTime.value.match(r'(\d{4}):(\d{2}):(\d{2})\s+(\d{2}):(\d{2}):(\d{2})')
-		m && return(datetime(int(m[1..6])*))
-	} catch {}
-	try {
-		stat = path.stat(pathName)
-		mtime = stat.mtime
-		datetime(mtime.year, mtime.month, mtime.day, mtime.hour, mtime.min, mtime.sec)
-	} catch {
-		nil
-	}
-}
-
-MakeMatchPatternFolder(substPatternFolder:string) = {
-	'^' + substPatternFolder.\
-		replace('{YYYY}',	r'\d{4}').\
-		replace('{YY}',		r'\d{2}').\
-		replace('{MM}',		r'\d{2}').\
-		replace('{DD}',		r'\d{2}').\
-		replace('{hh}',		r'\d{2}').\
-		replace('{mm}',		r'\d{2}').\
-		replace('{ss}',		r'\d{2}').\
-		replace('{QQ}',		r'[A-Z]{2}') + ' *'
-}
-
-ComposePathNameFromDatetime(substPatternFolder:string, substPatternFile:string, dt:datetime) = {
-	[dirDispName, fileName] = [substPatternFolder, substPatternFile]:*\
-		replace('{YYYY}',	'%04d' % dt.year):*\
-		replace('{YY}',		'%02d' % (dt.year % 100)):*\
-		replace('{MM}',		'%02d' % dt.month):*\
-		replace('{DD}',		'%02d' % dt.day):*\
-		replace('{hh}',		'%02d' % dt.hour):*\
-		replace('{mm}',		'%02d' % dt.min):*\
-		replace('{ss}',		'%02d' % dt.sec):*\
-		replace('{QQ}',		'AA')
-	[
-		path.join(g.dirNameStorage, dirDispName)
-		dirDispName
-		fileName
-	]
-}
 
 //-----------------------------------------------------------------------------
 // ImageViewer
@@ -272,9 +226,9 @@ ImageViewer = class(wx.Panel) {
 		pathNamesSource = path.walk(g.dirNameSource, -1, fileNamePatternAcceptable*):file
 		this.containerInfosForSource = []
 		pathNamesSource.each():xlist {|pathNameSource|
-			dt = GetTimeStamp(pathNameSource)
+			dt = utils.GetTimeStamp(pathNameSource)
 			!dt && continue
-			[dirName, dirDispName, fileName] = ComposePathNameFromDatetime(
+			[dirName, dirDispName, fileName] = utils.ComposePathNameFromDatetime(
 					g.substPatternFolder, g.substPatternFile, dt)
 			if (idx = (this.containerInfosForSource:*dirName == dirName).find():index) {
 				containerInfo = this.containerInfosForSource[idx]
@@ -289,7 +243,7 @@ ImageViewer = class(wx.Panel) {
 		!this.containerInfosForSource.isempty()
 	}
 	UpdateContainerInfosForStorage() = {
-		matchPatternFolder = MakeMatchPatternFolder(g.substPatternFolder)
+		matchPatternFolder = utils.MakeMatchPatternFolder(g.substPatternFolder)
 		dirNames = (path.walk(g.dirNameStorage, 1, '*'):dir).sort(`descend):list
 		this.containerInfosForStorage = dirNames.each():xlist {|dirName|
 			pathNames = [path.dir(dirName, fileNamePatternAcceptable*)]
@@ -352,7 +306,7 @@ ImageViewer = class(wx.Panel) {
 		dc.Clear()
 		yScrollPos = this.GetScrollPos(wx.VERTICAL)
 		dc.SetDeviceOrigin(0, -yScrollPos)
-		matchPatternFolder = MakeMatchPatternFolder(g.substPatternFolder)
+		matchPatternFolder = utils.MakeMatchPatternFolder(g.substPatternFolder)
 		containerInfos.each {|containerInfo|
 			containerInfo.rcsSplit = []
 			(containerInfo.y + containerInfo.height < yScrollPos) && continue
@@ -887,7 +841,7 @@ MainPanel = class(wx.Panel) {
 		this.btnStart.Enable(this.imageViewer.UpdateContainerInfosForSource())
 		this.imageViewer.UpdateContainerInfosForStorage()
 		this.imageViewer.InitSelection()
-		this.dirNamesMedia = []
+		this.dirNamesDCIM = []
 		this.Bind(wx.EVT_TIMER, this.TimerId) {|event| this.OnTimer(event)}
 		this.timer.Start(1000, false)
 		this.UpdateSource()
@@ -941,15 +895,15 @@ MainPanel = class(wx.Panel) {
 		this.imageViewer.QuitCopy()
 	}
 	OnTimer(event:wx.TimerEvent) = {
-		dirNamesMedia = (path.glob('/Volumes/*/DCIM'):dir).sort():list
-		(this.dirNamesMedia.len() == dirNamesMedia.len()) && \
-			(this.dirNamesMedia == dirNamesMedia).and() && return
-		this.dirNamesMedia = dirNamesMedia
+		dirNamesDCIM = utils.RetrieveDirNamesDCIM()
+		(this.dirNamesDCIM.len() == dirNamesDCIM.len()) && \
+			(this.dirNamesDCIM == dirNamesDCIM).and() && return
+		this.dirNamesDCIM = dirNamesDCIM
 		this.UpdateSource()
 	}
 	UpdateSource() = {
 		this.cbSource.Clear()
-		this.cbSource.Append(this.dirNamesMedia)
+		this.cbSource.Append(this.dirNamesDCIM)
 		if (!g.dirNameBrowsed.isempty()) {
 			this.cbSource.Append(g.dirNameBrowsed)
 		}

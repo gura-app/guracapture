@@ -1,0 +1,51 @@
+#!/usr/bin/env gura
+//-----------------------------------------------------------------------------
+// utilities
+//-----------------------------------------------------------------------------
+GetTimeStamp(pathName:string) = {
+	try {
+		exif = jpeg.exif(pathName)
+		m = exif.DateTime.value.match(r'(\d{4}):(\d{2}):(\d{2})\s+(\d{2}):(\d{2}):(\d{2})')
+		m && return(datetime(int(m[1..6])*))
+	} catch {}
+	try {
+		stat = path.stat(pathName)
+		mtime = stat.mtime
+		datetime(mtime.year, mtime.month, mtime.day, mtime.hour, mtime.min, mtime.sec)
+	} catch {
+		nil
+	}
+}
+
+MakeMatchPatternFolder(substPatternFolder:string) = {
+	'^' + substPatternFolder.\
+		replace('{YYYY}',	r'\d{4}').\
+		replace('{YY}',		r'\d{2}').\
+		replace('{MM}',		r'\d{2}').\
+		replace('{DD}',		r'\d{2}').\
+		replace('{hh}',		r'\d{2}').\
+		replace('{mm}',		r'\d{2}').\
+		replace('{ss}',		r'\d{2}').\
+		replace('{QQ}',		r'[A-Z]{2}') + ' *'
+}
+
+ComposePathNameFromDatetime(substPatternFolder:string, substPatternFile:string, dt:datetime) = {
+	[dirDispName, fileName] = [substPatternFolder, substPatternFile]:*\
+		replace('{YYYY}',	'%04d' % dt.year):*\
+		replace('{YY}',		'%02d' % (dt.year % 100)):*\
+		replace('{MM}',		'%02d' % dt.month):*\
+		replace('{DD}',		'%02d' % dt.day):*\
+		replace('{hh}',		'%02d' % dt.hour):*\
+		replace('{mm}',		'%02d' % dt.min):*\
+		replace('{ss}',		'%02d' % dt.sec):*\
+		replace('{QQ}',		'AA')
+	[
+		path.join(g.dirNameStorage, dirDispName)
+		dirDispName
+		fileName
+	]
+}
+
+RetrieveDirNamesDCIM() = {
+	dirNamesDCIM = (path.glob('/Volumes/*/DCIM'):dir).sort():list
+}
