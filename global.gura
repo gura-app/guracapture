@@ -1,6 +1,7 @@
 #!/usr/bin/env gura
 import(yaml)
 import(cairo)
+import(utils)
 
 //-----------------------------------------------------------------------------
 // Variables
@@ -24,7 +25,7 @@ wdMainWindow:public				= 800
 htMainWindow:public				= 730
 dirNameBrowsed:public			= sys.localdir
 dirNameSource:public			= sys.localdir
-dirNameStorage:public			= path.join(os.getenv('HOME'), 'Pictures')
+dirNameStorage:public			= utils.MakeDirNamePictures()
 matchPatternFolder:public		= r'\d{4}/\d{8}'
 substPatternFolder:public		= '{YYYY}/{YYYY}{MM}{DD}'
 substPatternFile:public			= '{YYYY}_{MM}{DD}_{hh}{mm}{ss}{QQ}'

@@ -46,6 +46,17 @@ ComposePathNameFromDatetime(substPatternFolder:string, substPatternFile:string, 
 	]
 }
 
-RetrieveDirNamesDCIM() = {
-	dirNamesDCIM = (path.glob('/Volumes/*/DCIM'):dir).sort():list
-}
+if (sys.platform == `mswin) {
+
+} elsif (sys.platform == `linux) {
+
+} elsif (sys.platform == `darwin) {
+	RetrieveDirNamesDCIM() = {
+		dirNamesDCIM = (path.glob('/Volumes/*/DCIM'):dir).sort():list
+	}
+	MakeDirNamePictures() = {
+		path.join(os.getenv('HOME'), 'Pictures')
+	}
+} else {
+	// nothing to do
+} 
