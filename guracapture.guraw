@@ -14,11 +14,16 @@ import(utils)
 	ID_EditPattern
 ] = wx.ID_HIGHEST..
 
+[
+	TimerId_UpdateSample
+	TimerId_DelayedUpdate
+	TimerId_PollSourceDir
+] = 1..
+
 //-----------------------------------------------------------------------------
 // PatternEditorPanel
 //-----------------------------------------------------------------------------
 PatternEditorPanel = class(wx.Panel) {
-	TimerId = 1
 	dtSample = datetime(2015, 3, 21, 13, 24, 47)
 	__init__(parent:wx.Windowm) = {|parent|
 		outerBox = wx.BoxSizer(wx.VERTICAL)
@@ -79,8 +84,8 @@ PatternEditorPanel = class(wx.Panel) {
 		wx.Button(this, wx.ID_OK, 'OK'$) {|ctrl|
 			vbox.Add(ctrl, wx.SizerFlags().Border(wx.TOP, 8).Align(wx.ALIGN_CENTRE))
 		}
-		this.timer = wx.Timer(this, TimerId)
-		this.Bind(wx.EVT_TIMER, this.TimerId) {|event| this.OnTimer(event)}
+		this.timer = wx.Timer(this, TimerId_UpdateSample)
+		this.Bind(wx.EVT_TIMER, TimerId_UpdateSample) {|event| this.OnTimer(event)}
 		this.UpdateSample()
 	}
 	OnText(event:wx.CommandEvent) = {
@@ -148,7 +153,6 @@ ContainerInfo = struct(type:symbol, dirName:string, dirDispName:string,
 // ImageViewer
 //-----------------------------------------------------------------------------
 ImageViewer = class(wx.Panel) {
-	TimerId = 1
 	sizeThumbnail = 180
 	wdSkip = 8, htSkip = 8
 	htBar = 20
@@ -189,7 +193,7 @@ ImageViewer = class(wx.Panel) {
 		this.brushLabel@Selected = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
 		this.containerInfosForSource = []
 		this.containerInfosForStorage = []
-		this.timer = wx.Timer(this, TimerId)
+		this.timer = wx.Timer(this, TimerId_DelayedUpdate)
 		this.imageInfoQue = []
 		this.containerInfoFocused = nil
 		this.imageInfoFocused = nil
@@ -203,7 +207,7 @@ ImageViewer = class(wx.Panel) {
 		this.nCols = 1
 		this.Bind(wx.EVT_ERASE_BACKGROUND) { /* nothing to do */ }
 		this.Bind(wx.EVT_SIZE) {|event| this.OnSize(event)}
-		this.Bind(wx.EVT_TIMER, this.TimerId) {|event| this.OnTimer(event)}
+		this.Bind(wx.EVT_TIMER, TimerId_DelayedUpdate) {|event| this.OnTimer(event)}
 		this.Bind(wx.EVT_PAINT) {|event| this.OnPaint(event)}
 		this.Bind(wx.EVT_SCROLLWIN) {|event| this.OnScrollWin(event)}
 		this.Bind(wx.EVT_MOUSEWHEEL) {|event| this.OnMouseWheel(event)}
@@ -432,6 +436,7 @@ ImageViewer = class(wx.Panel) {
 				dc.DrawText(str, wdClient - wdStr, yBar)
 			}
 		}
+		dc = nil
 		this.SetScrollbar(wx.VERTICAL, this.GetScrollPos(wx.VERTICAL), htClient, htScreen)
 		this.Refresh()
 		this.Update()
@@ -767,7 +772,6 @@ ImageViewer = class(wx.Panel) {
 // MainPanel
 //-----------------------------------------------------------------------------
 MainPanel = class(wx.Panel) {
-	TimerId = 1
 	__init__(parent:wx.Windowm) = {|parent|
 		outerBox = wx.BoxSizer(wx.VERTICAL)
 		this.SetSizer(outerBox)
@@ -837,12 +841,12 @@ MainPanel = class(wx.Panel) {
 			this.imageViewer = ctrl
 		}
 		this.btnQuit.Enable(false)
-		this.timer = wx.Timer(this, TimerId)
+		this.timer = wx.Timer(this, TimerId_PollSourceDir)
 		this.btnStart.Enable(this.imageViewer.UpdateContainerInfosForSource())
 		this.imageViewer.UpdateContainerInfosForStorage()
 		this.imageViewer.InitSelection()
 		this.dirNamesDCIM = []
-		this.Bind(wx.EVT_TIMER, this.TimerId) {|event| this.OnTimer(event)}
+		this.Bind(wx.EVT_TIMER, TimerId_PollSourceDir) {|event| this.OnTimer(event)}
 		this.timer.Start(1000, false)
 		this.UpdateSource()
 	}
