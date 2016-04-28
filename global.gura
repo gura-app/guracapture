@@ -81,7 +81,6 @@ InitializeResource() = {
 // LoadConfig
 //-----------------------------------------------------------------------------
 LoadConfig() = {
-	return
 	try {
 		cfg = yaml.read(fileNameCfg)
 		xMainWindow:extern			= cfg['xMainWindow']
