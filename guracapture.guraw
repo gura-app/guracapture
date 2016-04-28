@@ -166,16 +166,16 @@ ImageViewer = class(wx.Panel) {
 	__init__(parent:wx.Windowm, style:number) \
 		= {|parent, style => (style | wx.HSCROLL | wx.VSCROLL)|
 		this.bmpScreen = nil
-		this.penSlotBlank = wx.NullPen
+		this.penSlotBlank = wx.TRANSPARENT_PEN
 		this.brushSlotBlank = wx.Brush(wx.Colour(200, 200, 200), wx.BRUSHSTYLE_BDIAGONAL_HATCH)
 		this.brushSlotBlank@Focused = wx.Brush(wx.Colour(192, 192, 192), wx.BRUSHSTYLE_SOLID)
 		this.brushSlotBlank@Selected = wx.Brush(wx.Colour(192, 192, 192), wx.BRUSHSTYLE_SOLID)
 		this.brushBg = wx.Brush(wx.WHITE, wx.BRUSHSTYLE_SOLID)
-		this.penSlot = wx.NullPen
+		this.penSlot = wx.TRANSPARENT_PEN
 		this.brushSlot = wx.Brush(wx.Colour(200, 200, 200), wx.BRUSHSTYLE_SOLID)
 		this.brushSlot@Focused = wx.Brush(wx.Colour(128, 128, 128), wx.BRUSHSTYLE_SOLID)
 		this.brushSlot@Selected = wx.Brush(wx.Colour(128, 128, 128), wx.BRUSHSTYLE_SOLID)
-		this.penSlotProgress = wx.NullPen
+		this.penSlotProgress = wx.TRANSPARENT_PEN
 		this.brushSlotProgress = wx.Brush(wx.Colour(240, 240, 240), wx.BRUSHSTYLE_SOLID)
 		this.fgBarText = wx.BLACK
 		this.fgBarText@Focused = wx.WHITE
@@ -375,7 +375,7 @@ ImageViewer = class(wx.Panel) {
 					[wdStr, htStr] = dc.GetTextExtent(str)
 					xStr = xSlot + (sizeThumbnail - wdStr) / 2
 					yStr = ySlot + sizeThumbnail + htLabelMgn + (htLabel - htStr) / 2
-					dc.SetPen(wx.NullPen)
+					dc.SetPen(wx.TRANSPARENT_PEN)
 					dc.SetFont(this.font)
 					if (focusedFlag) {
 						dc.SetBrush(this.brushLabel@Focused)
@@ -395,7 +395,7 @@ ImageViewer = class(wx.Panel) {
 				focusedFlag = containerInfo.is(this.containerInfoFocused) && !this.imageInfoFocused
 				yBar = max(yScrollPos, containerInfo.y)
 				containerInfo.rcExpand.y = yBar
-				dc.SetPen(wx.NullPen)
+				dc.SetPen(wx.TRANSPARENT_PEN)
 				if (focusedFlag) {
 					dc.SetBrush(cond(containerInfo.type == `source,
 									 this.brushBarSource@Focused, this.brushBarStorage@Focused))
