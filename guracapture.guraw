@@ -164,7 +164,7 @@ ImageViewer = class(wx.Panel) {
 	htScrollPage = 400
 	fileNamePatternAcceptable = ['*.JPG', '*.jpg', '*.JPEG', '*.jpeg']
 	__init__(parent:wx.Windowm, style:number) \
-		= {|parent, style => (style | wx.HSCROLL | wx.VSCROLL)|
+		= {|parent, style => (style | wx.HSCROLL | wx.VSCROLL | wx.WANTS_CHARS)|
 		this.bmpScreen = nil
 		this.penSlotBlank = wx.TRANSPARENT_PEN
 		this.brushSlotBlank = wx.Brush(wx.Colour(200, 200, 200), wx.BRUSHSTYLE_BDIAGONAL_HATCH)
@@ -249,13 +249,11 @@ ImageViewer = class(wx.Panel) {
 	UpdateContainerInfosForStorage() = {
 		matchPatternFolder = utils.MakeMatchPatternFolder(g.substPatternFolder)
 		dirNames = (path.walk(g.dirNameStorage, 1, '*'):dir).sort(`descend):list
-		println(matchPatternFolder)
 		this.containerInfosForStorage = dirNames.each():xlist {|dirName|
 			pathNames = [path.dir(dirName, fileNamePatternAcceptable*)]
 			pathNames.isempty() && continue
 			dirName = dirName.chop()
 			dirDispName = dirName.mid(g.dirNameStorage.len() + 1)
-			println(dirDispName)
 			!dirDispName.match(matchPatternFolder) && continue
 			ContainerInfo(
 					`storage, dirName, dirDispName, ImageInfo(pathNames, nil, nil, `storage, false),
