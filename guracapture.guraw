@@ -249,11 +249,13 @@ ImageViewer = class(wx.Panel) {
 	UpdateContainerInfosForStorage() = {
 		matchPatternFolder = utils.MakeMatchPatternFolder(g.substPatternFolder)
 		dirNames = (path.walk(g.dirNameStorage, 1, '*'):dir).sort(`descend):list
+		println(matchPatternFolder)
 		this.containerInfosForStorage = dirNames.each():xlist {|dirName|
 			pathNames = [path.dir(dirName, fileNamePatternAcceptable*)]
 			pathNames.isempty() && continue
 			dirName = dirName.chop()
 			dirDispName = dirName.mid(g.dirNameStorage.len() + 1)
+			println(dirDispName)
 			!dirDispName.match(matchPatternFolder) && continue
 			ContainerInfo(
 					`storage, dirName, dirDispName, ImageInfo(pathNames, nil, nil, `storage, false),

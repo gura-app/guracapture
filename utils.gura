@@ -19,6 +19,7 @@ GetTimeStamp(pathName:string) = {
 
 MakeMatchPatternFolder(substPatternFolder:string) = {
 	'^' + substPatternFolder.\
+		replace('\\',		'\\\\').\
 		replace('{YYYY}',	r'\d{4}').\
 		replace('{YY}',		r'\d{2}').\
 		replace('{MM}',		r'\d{2}').\
