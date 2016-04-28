@@ -123,11 +123,6 @@ PatternEditorDialog = class(wx.Dialog) {
 }
 
 //-----------------------------------------------------------------------------
-// Splitter
-//-----------------------------------------------------------------------------
-Splitter = struct(rc:wx.Rect, idxImage:number, orientation:symbol)
-
-//-----------------------------------------------------------------------------
 // ImageInfo
 //-----------------------------------------------------------------------------
 ImageInfo = struct(pathName:string, pathNameSource:string:nil, image:wx.Bitmap:nil,
@@ -145,8 +140,8 @@ ImageInfo = struct(pathName:string, pathNameSource:string:nil, image:wx.Bitmap:n
 // ContainerInfo
 //-----------------------------------------------------------------------------
 ContainerInfo = struct(type:symbol, dirName:string, dirDispName:string,
-					   imageInfos[]:ImageInfo,
-					   y:number, height:number, rcExpand:wx.Rect, splitters[]:Splitter,
+					   imageInfos[]:ImageInfo, y:number, height:number,
+					   rcBar:wx.Rect, rcExpand:wx.Rect, rcName:wx.Rect,
 					   expandFlag:boolean)
 
 //-----------------------------------------------------------------------------
@@ -185,7 +180,7 @@ ImageViewer = class(wx.Panel) {
 		this.fgLabelText@Focused = wx.WHITE
 		this.fgLabelText@Selected = wx.WHITE
 		this.brushBarSource = wx.Brush(wx.Colour(248, 234, 195), wx.BRUSHSTYLE_SOLID)
-		this.brushBarStorage = wx.Brush(wx.Colour(255, 255, 255), wx.BRUSHSTYLE_SOLID)
+		this.brushBarStorage = wx.Brush(wx.Colour(248, 255, 248), wx.BRUSHSTYLE_SOLID)
 		this.brushBarSource@Focused = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
 		this.brushBarStorage@Focused = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
 		this.brushLabel = wx.NullBrush
@@ -238,7 +233,9 @@ ImageViewer = class(wx.Panel) {
 				containerInfo = this.containerInfosForSource[idx]
 			} else {
 				containerInfo = ContainerInfo(
-						`source, dirName, dirDispName, [], 0, 0, wx.Rect(0, 0, 20, 20), [], false)
+						`source, dirName, dirDispName, [], 0, 0,
+						wx.Rect(0, 0, 0, 20), wx.Rect(0, 0, 20, 20), wx.Rect(0, 0, 0, 20),
+						false)
 				this.containerInfosForSource.add(containerInfo)
 			}
 			containerInfo.imageInfos.add(ImageInfo(
@@ -257,7 +254,9 @@ ImageViewer = class(wx.Panel) {
 			!dirDispName.match(matchPatternFolder) && continue
 			ContainerInfo(
 					`storage, dirName, dirDispName, ImageInfo(pathNames, nil, nil, `storage, false),
-					0, 0, wx.Rect(0, 0, 20, 20), [], false)
+					0, 0,
+					wx.Rect(0, 0, 0, 20), wx.Rect(0, 0, 20, 20), wx.Rect(0, 0, 0, 20),
+					false)
 		}
 		!this.containerInfosForStorage.isempty()
 	}
@@ -288,7 +287,10 @@ ImageViewer = class(wx.Panel) {
 				this.containerInfosForStorage.each())
 		containerInfos.each {|containerInfo|
 			containerInfo.y = y
+			containerInfo.rcBar.y = y
+			containerInfo.rcBar.width = wdClient
 			containerInfo.rcExpand.y = y
+			containerInfo.rcName.y = y
 			height = 0
 			height += htBar
 			if (containerInfo.expandFlag) {
@@ -327,10 +329,8 @@ ImageViewer = class(wx.Panel) {
 						// nothing to do
 					} elsif (iCol == 0) {
 						rc = wx.Rect(0, ySlot - htSkip, wdClient, htSkip)
-						containerInfo.splitters.add(Splitter(rc, idxImage - 1, `horizontal))
 					} else {
 						rc = wx.Rect(xSlot - wdSkip, ySlot, wdSkip, sizeThumbnail)
-						containerInfo.splitters.add(Splitter(rc, idxImage - 1, `vertical))
 					}
 					if (imageInfo.stat == `source) {
 						dc.SetPen(this.penSlotBlank)
@@ -392,7 +392,9 @@ ImageViewer = class(wx.Panel) {
 			if (htDisp > htBar) {
 				focusedFlag = containerInfo.is(this.containerInfoFocused) && !this.imageInfoFocused
 				yBar = max(yScrollPos, containerInfo.y)
+				containerInfo.rcBar.y = yBar
 				containerInfo.rcExpand.y = yBar
+				containerInfo.rcName.y = yBar
 				dc.SetPen(wx.TRANSPARENT_PEN)
 				if (focusedFlag) {
 					dc.SetBrush(cond(containerInfo.type == `source,
@@ -521,7 +523,8 @@ ImageViewer = class(wx.Panel) {
 		}
 	}
 	SenseBox(pt:wx.Position, clickFlag:boolean) = {
-		x = pt.x, y = pt.y + this.GetScrollPos(wx.VERTICAL)
+		x = pt.x
+		y = pt.y + this.GetScrollPos(wx.VERTICAL)
 		[this.containerInfosForSource, this.containerInfosForStorage].each {|containerInfos|
 			if (idx = containerInfos:*rcExpand:*ContainsXY(x, y).find():index) {
 				if (clickFlag) {
@@ -533,24 +536,24 @@ ImageViewer = class(wx.Panel) {
 				this.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
 				return
 			}
-			containerInfos.each {|containerInfo|
-				if (idx = containerInfo.splitters:*rc:*ContainsXY(x, y).find():index) {
-					splitter = containerInfo.splitters[idx]
-					if (splitter.orientation == `vertical) {
-						this.SetCursor(wx.StockCursor(wx.CURSOR_SIZEWE))
-					} else {
-						this.SetCursor(wx.StockCursor(wx.CURSOR_SIZENS))
-					}
-					if (clickFlag) {
-						
-					}
-					return
+			if (idx = containerInfos:*rcBar:*ContainsXY(x, y).find():index) {
+				if (clickFlag) {
+					containerInfo = containerInfos[idx]
+					this.containerInfoFocused = containerInfo
+					this.imageInfoFocused = nil
+					this.UpdateContent()
 				}
+				this.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
+				return
+			}
+			containerInfos.each {|containerInfo|
+				
 			}
 		}
 		this.SetCursor(wx.StockCursor(wx.CURSOR_ARROW))
 	}
 	OnLeftDown(event:wx.MouseEvent) = {
+		this.SetFocus()
 		this.SenseBox(event.GetPosition(), true)
 	}
 	OnLeftUp(event:wx.MouseEvent) = {
