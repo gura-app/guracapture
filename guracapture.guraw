@@ -449,6 +449,10 @@ ImageViewer = class(wx.Panel) {
 			int(idxImage / this.nCols) * (sizeThumbnail + htLabelMgn + htLabel + htSkip)
 		[xSlot, ySlot]
 	}
+	CalcSlotRect(containerInfo:ContainerInfo, idxImage:number) = {
+		[xSlot, ySlot] = this.CalcSlotPosition(containerInfo, idxImage)
+		wx.Rect(xSlot, ySlot, sizeThumbnail, sizeThumbnail)
+	}
 	CopyImageFiles(label:wx.StaticText) = {
 		[wdClient, htClient] = this.GetClientSizeWH()
 		this.quitFlag = false
@@ -523,6 +527,7 @@ ImageViewer = class(wx.Panel) {
 		}
 	}
 	SenseBox(pt:wx.Position, clickFlag:boolean) = {
+		(this.nCols == 0) && return
 		x = pt.x
 		y = pt.y + this.GetScrollPos(wx.VERTICAL)
 		[this.containerInfosForSource, this.containerInfosForStorage].each {|containerInfos|
@@ -547,7 +552,13 @@ ImageViewer = class(wx.Panel) {
 				return
 			}
 			containerInfos.each {|containerInfo|
-				
+				containerInfo.imageInfos.each {|imageInfo, idxImage|
+					rcSlot = this.CalcSlotRect(containerInfo, idxImage)
+					if (rcSlot.ContainsXY(x, y)) {
+						this.imageInfoFocused = imageInfo
+						return
+					}
+				}
 			}
 		}
 		this.SetCursor(wx.StockCursor(wx.CURSOR_ARROW))
