@@ -901,7 +901,8 @@ MainPanel = class(wx.Panel) {
 	OnTimer(event:wx.TimerEvent) = {
 		dirNamesDCIM = utils.RetrieveDirNamesDCIM()
 		(this.dirNamesDCIM.len() == dirNamesDCIM.len()) && \
-			(this.dirNamesDCIM == dirNamesDCIM).and() && return
+			(this.dirNamesDCIM.isempty() || \
+			 (this.dirNamesDCIM == dirNamesDCIM).and()) && return
 		this.dirNamesDCIM = dirNamesDCIM
 		this.UpdateSource()
 	}
