@@ -424,11 +424,15 @@ ImageViewer = class(wx.Panel) {
 					dc.SetTextForeground(cond(focusedFlag,
 											  this.fgBarLinkText@Focused, this.fgBarLinkText))
 					dc.DrawText(strRight, 20 + wdStr, yBar)
+					containerInfo.rcName.x = 20 + wdStr
+					containerInfo.rcName.width = wdStr
 				} else {
 					dc.SetFont(this.fontBold)
 					dc.SetTextForeground(cond(focusedFlag,
 											  this.fgBarText@Focused, this.fgBarText))
 					dc.DrawText(containerInfo.dirDispName, 20, yBar)
+					containerInfo.rcName.x = 20 + wdStr
+					containerInfo.rcName.width = 10
 				}
 				str = format('%d images'$, containerInfo.imageInfos.len())
 				[wdStr, htStr] = dc.GetTextExtent(str)
@@ -528,37 +532,48 @@ ImageViewer = class(wx.Panel) {
 	}
 	SenseBox(pt:wx.Position, clickFlag:boolean) = {
 		(this.nCols == 0) && return
+		[wdClient, htClient] = this.GetClientSizeWH()
+		yScrollPos = this.GetScrollPos(wx.VERTICAL)
 		x = pt.x
-		y = pt.y + this.GetScrollPos(wx.VERTICAL)
+		y = pt.y + yScrollPos
 		[this.containerInfosForSource, this.containerInfosForStorage].each {|containerInfos|
-			if (idx = containerInfos:*rcExpand:*ContainsXY(x, y).find():index) {
-				if (clickFlag) {
-					containerInfo = containerInfos[idx]
-					containerInfo.expandFlag = !containerInfo.expandFlag
-					this.ChangeExpandStatus(containerInfo)
-					this.UpdateContent()
-				}
-				this.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
-				return
-			}
-			if (idx = containerInfos:*rcBar:*ContainsXY(x, y).find():index) {
-				if (clickFlag) {
-					containerInfo = containerInfos[idx]
-					this.containerInfoFocused = containerInfo
-					this.imageInfoFocused = nil
-					this.UpdateContent()
-				}
-				this.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
-				return
-			}
 			containerInfos.each {|containerInfo|
+				(containerInfo.y + containerInfo.height < yScrollPos) && continue
+				(containerInfo.y >= yScrollPos + htClient) && break
+				if (containerInfo.rcExpand.ContainsXY(x, y)) {
+					if (clickFlag) {
+						containerInfo.expandFlag = !containerInfo.expandFlag
+						this.ChangeExpandStatus(containerInfo)
+						this.UpdateContent()
+					}
+					this.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
+					return
+				} elsif (containerInfo.rcName.ContainsXY(x, y)) {
+					if (clickFlag) {
+						this.containerInfoFocused = containerInfo
+						this.imageInfoFocused = nil
+						this.UpdateContent()
+					}
+					this.SetCursor(wx.StockCursor(wx.CURSOR_IBEAM))
+					return
+				} elsif (containerInfo.rcBar.ContainsXY(x, y)) {
+					if (clickFlag) {
+						this.containerInfoFocused = containerInfo
+						this.imageInfoFocused = nil
+						this.UpdateContent()
+					}
+					this.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
+					return
+				}
 				containerInfo.imageInfos.each {|imageInfo, idxImage|
 					rcSlot = this.CalcSlotRect(containerInfo, idxImage)
 					if (rcSlot.ContainsXY(x, y)) {
 						this.imageInfoFocused = imageInfo
+						this.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
 						return
 					}
 				}
+				this.SetCursor(wx.StockCursor(wx.CURSOR_ARROW))
 			}
 		}
 		this.SetCursor(wx.StockCursor(wx.CURSOR_ARROW))
