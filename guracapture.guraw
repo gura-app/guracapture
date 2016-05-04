@@ -199,6 +199,9 @@ ImageViewer = class(wx.Panel) {
 		this.fontBoldUL = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL,
 							  wx.FONTWEIGHT_BOLD)
 		this.fontBoldUL.SetUnderlined(true)
+		this.fontSlantUL = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_SLANT,
+									wx.FONTWEIGHT_BOLD)
+		this.fontSlantUL.SetUnderlined(true)
 		this.nCols = 1
 		this.Bind(wx.EVT_ERASE_BACKGROUND) { /* nothing to do */ }
 		this.Bind(wx.EVT_SIZE) {|event| this.OnSize(event)}
@@ -287,10 +290,10 @@ ImageViewer = class(wx.Panel) {
 				this.containerInfosForStorage.each())
 		containerInfos.each {|containerInfo|
 			containerInfo.y = y
-			containerInfo.rcBar.y = y
-			containerInfo.rcBar.width = wdClient
-			containerInfo.rcExpand.y = y
-			containerInfo.rcName.y = y
+			containerInfo.rcBar.SetY(y)
+			containerInfo.rcBar.SetWidth(wdClient)
+			containerInfo.rcExpand.SetY(y)
+			containerInfo.rcName.SetY(y)
 			height = 0
 			height += htBar
 			if (containerInfo.expandFlag) {
@@ -392,9 +395,9 @@ ImageViewer = class(wx.Panel) {
 			if (htDisp > htBar) {
 				focusedFlag = containerInfo.is(this.containerInfoFocused) && !this.imageInfoFocused
 				yBar = max(yScrollPos, containerInfo.y)
-				containerInfo.rcBar.y = yBar
-				containerInfo.rcExpand.y = yBar
-				containerInfo.rcName.y = yBar
+				containerInfo.rcBar.SetY(yBar)
+				containerInfo.rcExpand.SetY(yBar)
+				containerInfo.rcName.SetY(yBar)
 				dc.SetPen(wx.TRANSPARENT_PEN)
 				if (focusedFlag) {
 					dc.SetBrush(cond(containerInfo.type == `source,
@@ -409,31 +412,32 @@ ImageViewer = class(wx.Panel) {
 				} else {
 					dc.DrawBitmap(g.bmpExpandPlus, 0, yBar, false)
 				}
+				wdSpace = 0
+				fontRight = this.fontBoldUL
 				if (m = containerInfo.dirDispName.match(matchPatternFolder)) {
 					strLeft = m[0]
 					strRight = containerInfo.dirDispName.mid(strLeft.len())
-					if (strRight.match('^#')) {
+					if (strRight.isempty()) {
+						fontRight = this.fontSlantUL
+						wdSpace = 4
 						strRight = 'Click to Fill Name'$
 					}
-					dc.SetFont(this.fontBold)
-					dc.SetTextForeground(cond(focusedFlag,
-											  this.fgBarText@Focused, this.fgBarText))
-					dc.DrawText(strLeft, 20, yBar)
-					[wdStr, htStr] = dc.GetTextExtent(strLeft)
-					dc.SetFont(this.fontBoldUL)
-					dc.SetTextForeground(cond(focusedFlag,
-											  this.fgBarLinkText@Focused, this.fgBarLinkText))
-					dc.DrawText(strRight, 20 + wdStr, yBar)
-					containerInfo.rcName.x = 20 + wdStr
-					containerInfo.rcName.width = wdStr
 				} else {
-					dc.SetFont(this.fontBold)
-					dc.SetTextForeground(cond(focusedFlag,
-											  this.fgBarText@Focused, this.fgBarText))
-					dc.DrawText(containerInfo.dirDispName, 20, yBar)
-					containerInfo.rcName.x = 20 + wdStr
-					containerInfo.rcName.width = 10
+					strLeft = containerInfo.dirDispName
+					strRight = ''
 				}
+				dc.SetFont(this.fontBold)
+				dc.SetTextForeground(cond(focusedFlag,
+										  this.fgBarText@Focused, this.fgBarText))
+				[wdStrLeft, htStrLeft] = dc.GetTextExtent(strLeft)
+				dc.DrawText(strLeft, 20, yBar)
+				dc.SetFont(fontRight)
+				dc.SetTextForeground(cond(focusedFlag,
+										  this.fgBarLinkText@Focused, this.fgBarLinkText))
+				[wdStrRight, htStrRight] = dc.GetTextExtent(strRight)
+				dc.DrawText(strRight, 20 + wdStrLeft + wdSpace, yBar)
+				containerInfo.rcName.SetX(20 + wdStrLeft + wdSpace)
+				containerInfo.rcName.SetWidth(wdStrRight)
 				str = format('%d images'$, containerInfo.imageInfos.len())
 				[wdStr, htStr] = dc.GetTextExtent(str)
 				dc.SetFont(this.fontBold)
@@ -565,15 +569,16 @@ ImageViewer = class(wx.Panel) {
 					this.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
 					return
 				}
-				containerInfo.imageInfos.each {|imageInfo, idxImage|
-					rcSlot = this.CalcSlotRect(containerInfo, idxImage)
-					if (rcSlot.ContainsXY(x, y)) {
-						this.imageInfoFocused = imageInfo
-						this.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
-						return
+				if (containerInfo.expandFlag) {
+					containerInfo.imageInfos.each {|imageInfo, idxImage|
+						rcSlot = this.CalcSlotRect(containerInfo, idxImage)
+						if (rcSlot.ContainsXY(x, y)) {
+							this.imageInfoFocused = imageInfo
+							this.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
+							return
+						}
 					}
 				}
-				this.SetCursor(wx.StockCursor(wx.CURSOR_ARROW))
 			}
 		}
 		this.SetCursor(wx.StockCursor(wx.CURSOR_ARROW))
