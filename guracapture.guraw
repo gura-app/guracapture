@@ -195,14 +195,16 @@ ImageViewer = class(wx.Panel) {
 		this.font = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL,
 							wx.FONTWEIGHT_NORMAL)
 		this.fontBold = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL,
-							wx.FONTWEIGHT_BOLD)
+								wx.FONTWEIGHT_BOLD)
 		this.fontBoldUL = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL,
-							  wx.FONTWEIGHT_BOLD)
+								  wx.FONTWEIGHT_BOLD)
 		this.fontBoldUL.SetUnderlined(true)
 		this.fontSlantUL = wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_SLANT,
-									wx.FONTWEIGHT_BOLD)
+								   wx.FONTWEIGHT_BOLD)
 		this.fontSlantUL.SetUnderlined(true)
 		this.nCols = 1
+		this.textName = wx.TextCtrl(this, wx.ID_ANY)
+		this.textName.Show(false)
 		this.Bind(wx.EVT_ERASE_BACKGROUND) { /* nothing to do */ }
 		this.Bind(wx.EVT_SIZE) {|event| this.OnSize(event)}
 		this.Bind(wx.EVT_TIMER, TimerId_DelayedUpdate) {|event| this.OnTimer(event)}
@@ -549,6 +551,7 @@ ImageViewer = class(wx.Panel) {
 						containerInfo.expandFlag = !containerInfo.expandFlag
 						this.ChangeExpandStatus(containerInfo)
 						this.UpdateContent()
+						this.textName.Show(false)
 					}
 					this.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
 					return
@@ -557,6 +560,17 @@ ImageViewer = class(wx.Panel) {
 						this.containerInfoFocused = containerInfo
 						this.imageInfoFocused = nil
 						this.UpdateContent()
+						rc = containerInfo.rcName
+						matchPatternFolder = utils.MakeMatchPatternFolder(g.substPatternFolder)
+						strRight = ''
+						if (m = containerInfo.dirDispName.match(matchPatternFolder)) {
+							strRight = containerInfo.dirDispName.mid(m[0].len())
+						}
+						this.textName.SetValue(strRight)
+						this.textName.MoveXY(rc.x, rc.y)
+						this.textName.SetSizeWH(200, 20)
+						this.textName.Show(true)
+						this.textName.SetFocus()
 					}
 					this.SetCursor(wx.StockCursor(wx.CURSOR_IBEAM))
 					return
@@ -565,6 +579,7 @@ ImageViewer = class(wx.Panel) {
 						this.containerInfoFocused = containerInfo
 						this.imageInfoFocused = nil
 						this.UpdateContent()
+						this.textName.Show(false)
 					}
 					this.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
 					return
@@ -573,13 +588,20 @@ ImageViewer = class(wx.Panel) {
 					containerInfo.imageInfos.each {|imageInfo, idxImage|
 						rcSlot = this.CalcSlotRect(containerInfo, idxImage)
 						if (rcSlot.ContainsXY(x, y)) {
-							this.imageInfoFocused = imageInfo
+							if (clickFlag) {
+								this.imageInfoFocused = imageInfo
+								this.UpdateContent()
+								this.textName.Show(false)
+							}
 							this.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
 							return
 						}
 					}
 				}
 			}
+		}
+		if (clickFlag) {
+			this.textName.Show(false)
 		}
 		this.SetCursor(wx.StockCursor(wx.CURSOR_ARROW))
 	}
