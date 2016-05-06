@@ -179,7 +179,7 @@ ImageViewer = class(wx.Panel) {
 		this.fgLabelText = wx.BLACK
 		this.fgLabelText@Focused = wx.WHITE
 		this.fgLabelText@Selected = wx.WHITE
-		this.brushBarSource = wx.Brush(wx.Colour(248, 234, 195), wx.BRUSHSTYLE_SOLID)
+		this.brushBarSource = wx.Brush(wx.Colour(200, 200, 200), wx.BRUSHSTYLE_BDIAGONAL_HATCH)
 		this.brushBarStorage = wx.Brush(wx.Colour(248, 255, 248), wx.BRUSHSTYLE_SOLID)
 		this.brushBarSource@Focused = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
 		this.brushBarStorage@Focused = wx.Brush(wx.Colour(0, 0, 200), wx.BRUSHSTYLE_SOLID)
@@ -290,10 +290,10 @@ ImageViewer = class(wx.Panel) {
 				this.containerInfosForStorage.each())
 		containerInfos.each {|containerInfo|
 			containerInfo.y = y
-			containerInfo.rcBar.SetY(y)
-			containerInfo.rcBar.SetWidth(wdClient)
-			containerInfo.rcExpand.SetY(y)
-			containerInfo.rcName.SetY(y)
+			containerInfo.rcBar.y = y
+			containerInfo.rcBar.width = wdClient
+			containerInfo.rcExpand.y = y
+			containerInfo.rcName.y = y
 			height = 0
 			height += htBar
 			if (containerInfo.expandFlag) {
@@ -395,9 +395,9 @@ ImageViewer = class(wx.Panel) {
 			if (htDisp > htBar) {
 				focusedFlag = containerInfo.is(this.containerInfoFocused) && !this.imageInfoFocused
 				yBar = max(yScrollPos, containerInfo.y)
-				containerInfo.rcBar.SetY(yBar)
-				containerInfo.rcExpand.SetY(yBar)
-				containerInfo.rcName.SetY(yBar)
+				containerInfo.rcBar.y = yBar
+				containerInfo.rcExpand.y = yBar
+				containerInfo.rcName.y = yBar
 				dc.SetPen(wx.TRANSPARENT_PEN)
 				if (focusedFlag) {
 					dc.SetBrush(cond(containerInfo.type == `source,
@@ -436,8 +436,8 @@ ImageViewer = class(wx.Panel) {
 										  this.fgBarLinkText@Focused, this.fgBarLinkText))
 				[wdStrRight, htStrRight] = dc.GetTextExtent(strRight)
 				dc.DrawText(strRight, 20 + wdStrLeft + wdSpace, yBar)
-				containerInfo.rcName.SetX(20 + wdStrLeft + wdSpace)
-				containerInfo.rcName.SetWidth(wdStrRight)
+				containerInfo.rcName.x = 20 + wdStrLeft + wdSpace
+				containerInfo.rcName.width = wdStrRight
 				str = format('%d images'$, containerInfo.imageInfos.len())
 				[wdStr, htStr] = dc.GetTextExtent(str)
 				dc.SetFont(this.fontBold)
